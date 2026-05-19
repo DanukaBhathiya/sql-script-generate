@@ -45,7 +45,7 @@ public class SqlGenerationService {
                 + "\"email_mismatch_count\", \"first_name\", \"full_name\", \"id_expire\", \"id_type\", \"identity_number\", "
                 + "\"last_name\", \"middle_name\", \"mobile\", \"password_reference\", \"phase\", \"preferred_language\", "
                 + "\"status\", \"street1\", \"street2\", \"street3\", \"username\", \"date_of_birth\", "
-                + "\"registered_account_number\", \"user_grooup_id\", \"migrate_user\") VALUES ";
+                + "\"registered_account_number\", \"user_group_id\", \"migrate_user\") VALUES ";
 
         Set<String> seenCif = new HashSet<>();
         Set<String> seenUsername = new HashSet<>();
