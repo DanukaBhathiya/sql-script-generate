@@ -64,6 +64,7 @@ public class SqlGenerationService {
             String identityNumber = normalize(getRaw(row, "IDENTITY_NUMBER"));
             String mobile = normalize(getRaw(row, "MOBILE"));
             String username = normalize(getRaw(row, "USERNAME"));
+            String digestedPassword = normalize(getRaw(row, "DIGESTED_PASSWORD", "DIGESTED PASSWORD"));
             if (username != null) {
                 username = username.toUpperCase(Locale.ROOT);
             }
@@ -96,7 +97,7 @@ public class SqlGenerationService {
             values.add(toSqlString(cif));
             values.add("NULL");
             values.add(toSqlString("MALDIVES"));
-            values.add("NULL");
+            values.add(toSqlString(digestedPassword));
             values.add(toSqlString(email));
             values.add("NULL");
             values.add("0");
