@@ -3,6 +3,7 @@ package com.example.sql_script_generate.controller;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import com.example.sql_script_generate.service.SqlGenerationService;
+import com.example.sql_script_generate.service.SqlGenerationService.SqlGenerationResult;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -41,7 +43,8 @@ public class SqlGenerationController {
             @RequestParam("beneCsv") MultipartFile beneCsv,
             @RequestParam(name = "templateCsv", required = false) MultipartFile templateCsv,
             @RequestParam(name = "userIdStart", defaultValue = "1") int userIdStart,
-            @RequestParam(name = "saveToDisk", defaultValue = "true") boolean saveToDisk
+            @RequestParam(name = "saveToDisk", defaultValue = "true") boolean saveToDisk,
+            @RequestParam(name = "outputDir", defaultValue = "generated") String outputDir
     ) throws IOException {
 
         if (usersCsv.isEmpty()) {
@@ -56,9 +59,14 @@ public class SqlGenerationController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userIdStart must be greater than 0");
         }
 
-        String sql;
+        Path outputDirectory = null;
+        if (saveToDisk) {
+            outputDirectory = resolveOutputDirectory(outputDir);
+        }
+
+        SqlGenerationResult result;
         try {
-            sql = sqlGenerationService.generateSql(
+            result = sqlGenerationService.generateSqlWithSummary(
                     usersCsv.getInputStream(),
                     beneCsv.getInputStream(),
                     (templateCsv == null || templateCsv.isEmpty()) ? null : templateCsv.getInputStream(),
@@ -68,14 +76,22 @@ public class SqlGenerationController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
 
-        String fileName = "migration_inserts_" + LocalDateTime.now().format(FILE_TIMESTAMP) + ".sql";
+        String baseFileName = "migration_inserts_" + LocalDateTime.now().format(FILE_TIMESTAMP);
+        String fileName = baseFileName + ".sql";
+        String failSummaryFileName = baseFileName + "_fail_summary.log";
+        String migrationDataFileName = baseFileName + "_data.csv";
         Path savedPath = null;
+        Path failSummaryPath = null;
+        Path migrationDataPath = null;
 
         if (saveToDisk) {
-            Path generatedDir = Paths.get("generated");
-            Files.createDirectories(generatedDir);
-            savedPath = generatedDir.resolve(fileName);
-            Files.writeString(savedPath, sql, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.createDirectories(outputDirectory);
+            savedPath = outputDirectory.resolve(fileName);
+            failSummaryPath = outputDirectory.resolve(failSummaryFileName);
+            migrationDataPath = outputDirectory.resolve(migrationDataFileName);
+            Files.writeString(savedPath, result.sql(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(failSummaryPath, result.failureSummary(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(migrationDataPath, result.migrationDataCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -85,6 +101,16 @@ public class SqlGenerationController {
         if (savedPath != null) {
             headers.add("X-Saved-File", savedPath.toAbsolutePath().toString());
         }
+        if (failSummaryPath != null) {
+            headers.add("X-Fail-Summary-File", failSummaryPath.toAbsolutePath().toString());
+        }
+        if (migrationDataPath != null) {
+            headers.add("X-Migration-Data-File", migrationDataPath.toAbsolutePath().toString());
+        }
+        if (outputDirectory != null) {
+            headers.add("X-Output-Directory", outputDirectory.toString());
+        }
+        headers.add("X-Fail-Count", String.valueOf(result.failureCount()));
 
         String usersName = usersCsv.getOriginalFilename();
         String beneName = beneCsv.getOriginalFilename();
@@ -98,6 +124,17 @@ public class SqlGenerationController {
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(sql.getBytes(StandardCharsets.UTF_8));
+                .body(result.sql().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private Path resolveOutputDirectory(String outputDir) {
+        if (!StringUtils.hasText(outputDir)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "outputDir is required when saveToDisk is true");
+        }
+        try {
+            return Paths.get(outputDir).toAbsolutePath().normalize();
+        } catch (InvalidPathException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "outputDir is not a valid path");
+        }
     }
 }

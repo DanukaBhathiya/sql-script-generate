@@ -24,21 +24,49 @@ import org.springframework.stereotype.Service;
 public class SqlGenerationService {
 
     private static final DateTimeFormatter SQL_DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final List<String> PENDING_USER_COLUMNS = List.of(
+            "id", "created_date_time", "updated_date_time", "bank_email", "cif", "city", "country",
+            "digested_password", "email", "email_matched", "email_mismatch_count", "first_name", "full_name",
+            "id_expire", "id_type", "identity_number", "last_name", "middle_name", "mobile",
+            "password_reference", "phase", "preferred_language", "status", "street1", "street2", "street3",
+            "username", "date_of_birth", "registered_account_number", "user_group_id", "migrate_user"
+    );
+    private static final List<String> BENEFICIARY_COLUMNS = List.of(
+            "cif", "created_date_time", "updated_date_time", "account_number", "bank_code", "bank_name",
+            "nickname", "predefined_limit", "recipient_name", "transfer_limit", "type", "type_description",
+            "recipient_country", "recipient_country_code", "bank_bic", "is_intra_group", "is_combank"
+    );
+    private static final List<String> TEMPLATE_COLUMNS = List.of(
+            "created_date_time", "updated_date_time", "amount", "from_account", "note_to_recipient",
+            "personal_note", "recipient_bank", "recipient_name", "template_name", "to_account", "cif",
+            "currency_code", "bank_code", "charges", "purpose", "recipient_country", "transfer_type",
+            "recipient_country_code", "charge_option", "intermediary_bank_swift_code", "recipient_address",
+            "swift_code", "is_combank"
+    );
 
     public String generateSql(InputStream usersCsvStream, InputStream beneficiariesCsvStream, int userIdStart) throws IOException {
         return generateSql(usersCsvStream, beneficiariesCsvStream, null, userIdStart);
     }
 
     public String generateSql(InputStream usersCsvStream, InputStream beneficiariesCsvStream, InputStream templatesCsvStream, int userIdStart) throws IOException {
+        return generateSqlWithSummary(usersCsvStream, beneficiariesCsvStream, templatesCsvStream, userIdStart).sql();
+    }
+
+    public SqlGenerationResult generateSqlWithSummary(InputStream usersCsvStream, InputStream beneficiariesCsvStream, InputStream templatesCsvStream, int userIdStart) throws IOException {
         List<CSVRecord> users = readCsv(usersCsvStream);
         List<CSVRecord> beneficiaries = readCsv(beneficiariesCsvStream);
         List<CSVRecord> templates = templatesCsvStream == null ? new ArrayList<>() : readCsv(templatesCsvStream);
+        List<FailureScenario> failureScenarios = new ArrayList<>();
 
         int nextUserId = userIdStart;
+        int nextInsertIndex = 1;
 
         StringBuilder sql = new StringBuilder();
         sql.append("-- Auto-generated SQL inserts").append(System.lineSeparator());
         sql.append(System.lineSeparator());
+        StringBuilder migrationDataCsv = new StringBuilder();
+        migrationDataCsv.append("insert_index,source_file,source_row,target_table,column_name,final_sql_value")
+                .append(System.lineSeparator());
 
         String pendingUserPrefix = "INSERT INTO \"pending_user\" (\"id\", \"created_date_time\", \"updated_date_time\", "
                 + "\"bank_email\", \"cif\", \"city\", \"country\", \"digested_password\", \"email\", \"email_matched\", "
@@ -81,11 +109,18 @@ public class SqlGenerationService {
             registerUniqueField(seenEmail, normalizeUniqueKey(email, true), "email", duplicateFields);
 
             if (!duplicateFields.isEmpty()) {
+                String reason = "duplicate " + String.join(", ", duplicateFields);
                 sql.append("-- Skipped users CSV row ")
                         .append(row.getRecordNumber())
-                        .append(" due to duplicate ")
-                        .append(String.join(", ", duplicateFields))
+                        .append(" due to ")
+                        .append(reason)
                         .append(System.lineSeparator());
+                failureScenarios.add(new FailureScenario(
+                        "users CSV",
+                        row.getRecordNumber(),
+                        "pending_user insert",
+                        "query skipped without being created because the row has " + reason
+                ));
                 continue;
             }
 
@@ -127,6 +162,9 @@ public class SqlGenerationService {
                     .append(String.join(", ", values))
                     .append(") ON CONFLICT DO NOTHING;")
                     .append(System.lineSeparator());
+            appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "users CSV", row.getRecordNumber(),
+                    "pending_user", PENDING_USER_COLUMNS, values);
+            nextInsertIndex++;
             nextUserId++;
         }
 
@@ -188,6 +226,9 @@ public class SqlGenerationService {
                     .append(String.join(", ", values))
                     .append(");")
                     .append(System.lineSeparator());
+            appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "beneficiaries CSV", row.getRecordNumber(),
+                    "migrate_beneficiary", BENEFICIARY_COLUMNS, values);
+            nextInsertIndex++;
         }
 
         if (!templates.isEmpty()) {
@@ -244,10 +285,68 @@ public class SqlGenerationService {
                         .append(String.join(", ", values))
                         .append(");")
                         .append(System.lineSeparator());
+                appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "templates CSV", row.getRecordNumber(),
+                        "migrate_template", TEMPLATE_COLUMNS, values);
+                nextInsertIndex++;
             }
         }
 
-        return sql.toString();
+        return new SqlGenerationResult(sql.toString(), buildFailureSummary(failureScenarios),
+                migrationDataCsv.toString(), failureScenarios.size());
+    }
+
+    private void appendMigrationDataCsvRows(StringBuilder csv, int insertIndex, String source, long sourceRow,
+            String targetTable, List<String> columns, List<String> values) {
+        for (int i = 0; i < columns.size(); i++) {
+            appendCsvValue(csv, String.valueOf(insertIndex));
+            csv.append(",");
+            appendCsvValue(csv, source);
+            csv.append(",");
+            appendCsvValue(csv, String.valueOf(sourceRow));
+            csv.append(",");
+            appendCsvValue(csv, targetTable);
+            csv.append(",");
+            appendCsvValue(csv, columns.get(i));
+            csv.append(",");
+            appendCsvValue(csv, values.get(i));
+            csv.append(System.lineSeparator());
+        }
+    }
+
+    private void appendCsvValue(StringBuilder csv, String value) {
+        if (value == null) {
+            return;
+        }
+        boolean needsQuoting = value.contains(",") || value.contains("\"") || value.contains("\r") || value.contains("\n");
+        if (!needsQuoting) {
+            csv.append(value);
+            return;
+        }
+        csv.append("\"").append(value.replace("\"", "\"\"")).append("\"");
+    }
+
+    private String buildFailureSummary(List<FailureScenario> failureScenarios) {
+        StringBuilder summary = new StringBuilder();
+        summary.append("SQL generation fail summary").append(System.lineSeparator());
+        summary.append("Failed scenarios: ").append(failureScenarios.size()).append(System.lineSeparator());
+        summary.append(System.lineSeparator());
+
+        if (failureScenarios.isEmpty()) {
+            summary.append("No failed scenarios found. No SQL queries were skipped.").append(System.lineSeparator());
+            return summary.toString();
+        }
+
+        for (int i = 0; i < failureScenarios.size(); i++) {
+            FailureScenario failure = failureScenarios.get(i);
+            summary.append(i + 1).append(". Source: ").append(failure.source()).append(System.lineSeparator());
+            summary.append("   Row: ").append(failure.rowNumber()).append(System.lineSeparator());
+            summary.append("   Query: ").append(failure.queryName()).append(System.lineSeparator());
+            summary.append("   Status: skipped").append(System.lineSeparator());
+            summary.append("   Reason: ").append(failure.reason()).append(System.lineSeparator());
+            summary.append(System.lineSeparator());
+        }
+
+        return summary.toString();
     }
 
     private List<CSVRecord> readCsv(InputStream stream) throws IOException {
@@ -434,5 +533,11 @@ public class SqlGenerationService {
         }
 
         return null;
+    }
+
+    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount) {
+    }
+
+    private record FailureScenario(String source, long rowNumber, String queryName, String reason) {
     }
 }
