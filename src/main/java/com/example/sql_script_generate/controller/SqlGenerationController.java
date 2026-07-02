@@ -1,6 +1,7 @@
 package com.example.sql_script_generate.controller;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -10,6 +11,9 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import com.example.sql_script_generate.config.MigrationInputProperties;
+import com.example.sql_script_generate.service.SqlExecutionService;
+import com.example.sql_script_generate.service.SqlExecutionService.SqlExecutionResult;
 import com.example.sql_script_generate.service.SqlGenerationService;
 import com.example.sql_script_generate.service.SqlGenerationService.SqlGenerationResult;
 import org.springframework.http.ContentDisposition;
@@ -22,7 +26,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -32,28 +35,23 @@ public class SqlGenerationController {
     private static final DateTimeFormatter FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private final SqlGenerationService sqlGenerationService;
+    private final SqlExecutionService sqlExecutionService;
+    private final MigrationInputProperties inputProperties;
 
-    public SqlGenerationController(SqlGenerationService sqlGenerationService) {
+    public SqlGenerationController(SqlGenerationService sqlGenerationService, SqlExecutionService sqlExecutionService,
+            MigrationInputProperties inputProperties) {
         this.sqlGenerationService = sqlGenerationService;
+        this.sqlExecutionService = sqlExecutionService;
+        this.inputProperties = inputProperties;
     }
 
-    @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/generate")
     public ResponseEntity<byte[]> generateSql(
-            @RequestParam("usersCsv") MultipartFile usersCsv,
-            @RequestParam("beneCsv") MultipartFile beneCsv,
-            @RequestParam(name = "templateCsv", required = false) MultipartFile templateCsv,
             @RequestParam(name = "userIdStart", defaultValue = "1") int userIdStart,
             @RequestParam(name = "saveToDisk", defaultValue = "true") boolean saveToDisk,
-            @RequestParam(name = "outputDir", defaultValue = "generated") String outputDir
+            @RequestParam(name = "outputDir", defaultValue = "generated") String outputDir,
+            @RequestParam(name = "executeToDb", defaultValue = "false") boolean executeToDb
     ) throws IOException {
-
-        if (usersCsv.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "usersCsv file is required");
-        }
-
-        if (beneCsv.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "beneCsv file is required");
-        }
 
         if (userIdStart < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userIdStart must be greater than 0");
@@ -64,12 +62,21 @@ public class SqlGenerationController {
             outputDirectory = resolveOutputDirectory(outputDir);
         }
 
+        Path usersCsv = inputProperties.usersPath();
+        Path beneficiariesCsv = inputProperties.beneficiariesPath();
+        Path templatesCsv = inputProperties.templatesPath();
+        requireInputFile(usersCsv, "users CSV");
+        requireInputFile(beneficiariesCsv, "beneficiaries CSV");
+        boolean hasTemplatesCsv = Files.isRegularFile(templatesCsv);
+
         SqlGenerationResult result;
-        try {
+        try (InputStream usersInput = Files.newInputStream(usersCsv);
+                InputStream beneficiariesInput = Files.newInputStream(beneficiariesCsv);
+                InputStream templatesInput = hasTemplatesCsv ? Files.newInputStream(templatesCsv) : null) {
             result = sqlGenerationService.generateSqlWithSummary(
-                    usersCsv.getInputStream(),
-                    beneCsv.getInputStream(),
-                    (templateCsv == null || templateCsv.isEmpty()) ? null : templateCsv.getInputStream(),
+                    usersInput,
+                    beneficiariesInput,
+                    templatesInput,
                     userIdStart
             );
         } catch (IllegalArgumentException ex) {
@@ -94,6 +101,17 @@ public class SqlGenerationController {
             Files.writeString(migrationDataPath, result.migrationDataCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         }
 
+        SqlExecutionResult executionResult = null;
+        if (executeToDb) {
+            try {
+                executionResult = sqlExecutionService.executeGeneratedSql(result.sql(), result.insertCount());
+            } catch (IllegalStateException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (RuntimeException ex) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Database execution failed: " + ex.getMessage());
+            }
+        }
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.TEXT_PLAIN);
         headers.setContentDisposition(ContentDisposition.attachment().filename(fileName).build());
@@ -111,20 +129,28 @@ public class SqlGenerationController {
             headers.add("X-Output-Directory", outputDirectory.toString());
         }
         headers.add("X-Fail-Count", String.valueOf(result.failureCount()));
+        headers.add("X-Insert-Count", String.valueOf(result.insertCount()));
+        headers.add("X-Db-Execution", executeToDb ? "EXECUTED" : "SKIPPED");
+        if (executionResult != null) {
+            headers.add("X-Db-Expected-Insert-Count", String.valueOf(executionResult.expectedInsertCount()));
+        }
 
-        String usersName = usersCsv.getOriginalFilename();
-        String beneName = beneCsv.getOriginalFilename();
-        headers.add("X-Users-File", StringUtils.hasText(usersName) ? usersName : "users.csv");
-        headers.add("X-Beneficiary-File", StringUtils.hasText(beneName) ? beneName : "bene.csv");
-
-        if (templateCsv != null && !templateCsv.isEmpty()) {
-            String templateName = templateCsv.getOriginalFilename();
-            headers.add("X-Template-File", StringUtils.hasText(templateName) ? templateName : "templates.csv");
+        headers.add("X-Users-File", usersCsv.getFileName().toString());
+        headers.add("X-Beneficiary-File", beneficiariesCsv.getFileName().toString());
+        if (hasTemplatesCsv) {
+            headers.add("X-Template-File", templatesCsv.getFileName().toString());
         }
 
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(result.sql().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void requireInputFile(Path path, String description) {
+        if (!Files.isRegularFile(path)) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Configured " + description + " file was not found: " + path);
+        }
     }
 
     private Path resolveOutputDirectory(String outputDir) {

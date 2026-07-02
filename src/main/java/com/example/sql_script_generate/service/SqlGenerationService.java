@@ -292,7 +292,7 @@ public class SqlGenerationService {
         }
 
         return new SqlGenerationResult(sql.toString(), buildFailureSummary(failureScenarios),
-                migrationDataCsv.toString(), failureScenarios.size());
+                migrationDataCsv.toString(), failureScenarios.size(), nextInsertIndex - 1);
     }
 
     private void appendMigrationDataCsvRows(StringBuilder csv, int insertIndex, String source, long sourceRow,
@@ -535,7 +535,7 @@ public class SqlGenerationService {
         return null;
     }
 
-    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount) {
+    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount, int insertCount) {
     }
 
     private record FailureScenario(String source, long rowNumber, String queryName, String reason) {

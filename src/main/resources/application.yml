@@ -1,0 +1,19 @@
+server:
+  port: 8001
+
+spring:
+  profiles:
+    active: uat
+  autoconfigure:
+    exclude: org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+  application:
+    name: sql-script-generate
+
+migration:
+  input:
+    directory: ${MIGRATION_INPUT_DIR:csv-files}
+    users-file: ${MIGRATION_USERS_FILE:users.csv}
+    beneficiaries-file: ${MIGRATION_BENEFICIARIES_FILE:beneficiaries.csv}
+    templates-file: ${MIGRATION_TEMPLATES_FILE:templates.csv}
+  output:
+    directory: ${MIGRATION_OUTPUT_DIR:migration-output}
