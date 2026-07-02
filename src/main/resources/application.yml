@@ -17,3 +17,14 @@ migration:
     templates-file: ${MIGRATION_TEMPLATES_FILE:templates.csv}
   output:
     directory: ${MIGRATION_OUTPUT_DIR:migration-output}
+  database:
+    schema: ${MIGRATION_DB_SCHEMA:public}
+    pending-user-table: ${MIGRATION_PENDING_USER_TABLE:pending_user}
+    pending-user-sequence: ${MIGRATION_PENDING_USER_SEQUENCE:pending_user_id_seq}
+    auto-create-pending-user-sequence: ${MIGRATION_AUTO_CREATE_PENDING_USER_SEQUENCE:true}
+
+logging:
+  level:
+    com.example.sql_script_generate: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{migrationRequestId:-system}] %logger{36} - %msg%n"

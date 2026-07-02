@@ -12,7 +12,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
-@Profile({"dev", "qa"})
+@Profile({"dev", "qa", "uat"})
 public class DatabaseConfig {
 
     @Bean

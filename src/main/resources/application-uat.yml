@@ -5,5 +5,5 @@ spring:
     password: ${AUTH_DB_PASSWORD:paymedia}
     driver-class-name: org.postgresql.Driver
     hikari:
-      pool-name: HikariCP-qa
+      pool-name: HikariCP-uat
       initialization-fail-timeout: -1
