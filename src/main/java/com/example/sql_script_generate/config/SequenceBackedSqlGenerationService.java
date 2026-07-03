@@ -2,7 +2,13 @@ package com.example.sql_script_generate.config;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import com.example.sql_script_generate.config.MigrationCsvPreprocessor.PreparedCsv;
+import com.example.sql_script_generate.config.MigrationCsvPreprocessor.SkippedRow;
 import com.example.sql_script_generate.service.SqlGenerationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,28 +20,78 @@ import org.springframework.stereotype.Service;
 public class SequenceBackedSqlGenerationService extends SqlGenerationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SequenceBackedSqlGenerationService.class);
+    private static final Pattern SOURCE_ROW = Pattern.compile(
+            "(?m)^(\\d+,(beneficiaries|templates) CSV,)(\\d+)(,)");
+
+    private final MigrationCsvPreprocessor csvPreprocessor = new MigrationCsvPreprocessor();
 
     @Override
     public SqlGenerationResult generateSqlWithSummary(InputStream usersCsvStream, InputStream beneficiariesCsvStream,
             InputStream templatesCsvStream, int ignoredUserIdStart) throws IOException {
         LOGGER.info("SQL generation started");
+        PreparedCsv beneficiaries = csvPreprocessor.prepareBeneficiaries(beneficiariesCsvStream);
+        PreparedCsv templates = csvPreprocessor.prepareTemplates(templatesCsvStream);
         SqlGenerationResult result = super.generateSqlWithSummary(
-                usersCsvStream, beneficiariesCsvStream, templatesCsvStream, 1);
+                usersCsvStream, beneficiaries.stream(), templates.stream(), 1);
 
         String sql = result.sql().replaceAll(
                 "(?m)(^INSERT INTO \"pending_user\" .*? VALUES \\()\\d+(, )",
-                "$1DEFAULT$2");
-        String migrationDataCsv = result.migrationDataCsv().replaceAll(
+                "$1DEFAULT$2")
+                .replaceAll(
+                        "(?m)^(INSERT INTO \"migrate_(?:beneficiary|template)\" .*\\));(\\r?)$",
+                        "$1 ON CONFLICT DO NOTHING;$2");
+        String migrationDataCsv = remapSourceRows(result.migrationDataCsv(),
+                beneficiaries.sourceRows(), templates.sourceRows()).replaceAll(
                 "(?m)^(\\d+,users CSV,\\d+,pending_user,id,)\\d+(\\r?)$",
                 "$1DEFAULT$2");
 
-        SqlGenerationResult sequenceBackedResult = new SqlGenerationResult(sql, result.failureSummary(), migrationDataCsv,
-                result.failureCount(), result.insertCount());
+        List<SkippedRow> preprocessorFailures = new java.util.ArrayList<>(beneficiaries.skippedRows());
+        preprocessorFailures.addAll(templates.skippedRows());
+        String failureSummary = mergeFailureSummary(result.failureSummary(), result.failureCount(), preprocessorFailures);
+
+        SqlGenerationResult sequenceBackedResult = new SqlGenerationResult(sql, failureSummary, migrationDataCsv,
+                result.failureCount() + preprocessorFailures.size(), result.insertCount());
         if (sequenceBackedResult.failureCount() > 0) {
             LOGGER.warn("SQL generation skipped rows: skippedCount={}", sequenceBackedResult.failureCount());
         }
         LOGGER.info("SQL generation completed: insertCount={}, skippedCount={}",
                 sequenceBackedResult.insertCount(), sequenceBackedResult.failureCount());
         return sequenceBackedResult;
+    }
+
+    private String remapSourceRows(String csv, Map<Long, Long> beneficiaryRows, Map<Long, Long> templateRows) {
+        Matcher matcher = SOURCE_ROW.matcher(csv);
+        StringBuffer remapped = new StringBuffer();
+        while (matcher.find()) {
+            long generatedRow = Long.parseLong(matcher.group(3));
+            Map<Long, Long> rows = "beneficiaries".equals(matcher.group(2)) ? beneficiaryRows : templateRows;
+            long sourceRow = rows.getOrDefault(generatedRow, generatedRow);
+            matcher.appendReplacement(remapped,
+                    Matcher.quoteReplacement(matcher.group(1) + sourceRow + matcher.group(4)));
+        }
+        matcher.appendTail(remapped);
+        return remapped.toString();
+    }
+
+    private String mergeFailureSummary(String summary, int existingCount, List<SkippedRow> addedFailures) {
+        if (addedFailures.isEmpty()) {
+            return summary;
+        }
+        int total = existingCount + addedFailures.size();
+        String merged = summary.replaceFirst("Failed scenarios: \\d+", "Failed scenarios: " + total);
+        if (existingCount == 0) {
+            merged = merged.replaceFirst("(?m)^No failed scenarios found\\. No SQL queries were skipped\\.\\R?", "");
+        }
+        StringBuilder output = new StringBuilder(merged);
+        for (int i = 0; i < addedFailures.size(); i++) {
+            SkippedRow failure = addedFailures.get(i);
+            output.append(existingCount + i + 1).append(". Source: ").append(failure.source()).append(System.lineSeparator());
+            output.append("   Row: ").append(failure.rowNumber()).append(System.lineSeparator());
+            output.append("   Query: ").append(failure.query()).append(System.lineSeparator());
+            output.append("   Status: skipped").append(System.lineSeparator());
+            output.append("   Reason: query skipped without being created because the row has ")
+                    .append(failure.reason()).append(System.lineSeparator()).append(System.lineSeparator());
+        }
+        return output.toString();
     }
 }

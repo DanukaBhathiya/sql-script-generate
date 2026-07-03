@@ -25,6 +25,46 @@ class SequenceBackedSqlGenerationServiceTests {
         assertThat(result.migrationDataCsv()).contains("1,users CSV,1,pending_user,id,DEFAULT");
     }
 
+    @Test
+    void beneficiaryAndTemplateInsertsIgnoreBusinessKeyConflicts() throws Exception {
+        InputStream usersCsv = csv("CIF,USERNAME\n");
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME\n"
+                + "1001,OTHER_BANK,1234,Home\n");
+        InputStream templatesCsv = csv("CIF,TEMPLATE_TYPE,TEMPLATE_NAME,RECIPIENT_BANK\n"
+                + "1001,DOMESTIC_PAYMENT,Rent,Bank\n");
+
+        var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, templatesCsv, 1);
+
+        assertThat(result.sql())
+                .containsPattern("INSERT INTO \\\"migrate_beneficiary\\\" .* ON CONFLICT DO NOTHING;")
+                .containsPattern("INSERT INTO \\\"migrate_template\\\" .* ON CONFLICT DO NOTHING;");
+    }
+
+    @Test
+    void bulkRowsAreNormalizedAndMissingRequiredTemplateFieldsAreSkipped() throws Exception {
+        InputStream usersCsv = csv("CIF,USERNAME\n");
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME\n"
+                + "1001,INTERNATIONAL,1234,Overseas\n");
+        InputStream templatesCsv = csv("CIF,TEMPLATE_TYPE,TEMPLATE_NAME,RECIPIENT_BANK\n"
+                + "1001,TRANSFER_OWN,Own account,\n"
+                + "1001,DOMESTIC_PAYMENT,Rent,Local Bank\n");
+
+        var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, templatesCsv, 1);
+
+        assertThat(result.sql())
+                .contains("'INTERNATIONAL_TRANSFER'")
+                .doesNotContain("'INTERNATIONAL'")
+                .doesNotContain("'Own account'")
+                .contains("'Rent'");
+        assertThat(result.failureCount()).isEqualTo(1);
+        assertThat(result.insertCount()).isEqualTo(2);
+        assertThat(result.failureSummary())
+                .contains("Source: templates CSV")
+                .contains("Row: 1")
+                .contains("missing required field(s): RECIPIENT_BANK");
+        assertThat(result.migrationDataCsv()).contains("templates CSV,2,migrate_template");
+    }
+
     private InputStream csv(String content) {
         return new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
     }

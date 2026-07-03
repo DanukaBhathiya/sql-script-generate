@@ -22,6 +22,7 @@ migration:
     pending-user-table: ${MIGRATION_PENDING_USER_TABLE:pending_user}
     pending-user-sequence: ${MIGRATION_PENDING_USER_SEQUENCE:pending_user_id_seq}
     auto-create-pending-user-sequence: ${MIGRATION_AUTO_CREATE_PENDING_USER_SEQUENCE:true}
+    auto-create-migration-unique-indexes: ${MIGRATION_AUTO_CREATE_UNIQUE_INDEXES:true}
 
 logging:
   level:

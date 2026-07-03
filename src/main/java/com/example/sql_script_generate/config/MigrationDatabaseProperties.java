@@ -11,6 +11,7 @@ public class MigrationDatabaseProperties {
     private String pendingUserTable = "pending_user";
     private String pendingUserSequence = "pending_user_id_seq";
     private boolean autoCreatePendingUserSequence = true;
+    private boolean autoCreateMigrationUniqueIndexes = true;
 
     public String getSchema() {
         return schema;
@@ -42,5 +43,13 @@ public class MigrationDatabaseProperties {
 
     public void setAutoCreatePendingUserSequence(boolean autoCreatePendingUserSequence) {
         this.autoCreatePendingUserSequence = autoCreatePendingUserSequence;
+    }
+
+    public boolean isAutoCreateMigrationUniqueIndexes() {
+        return autoCreateMigrationUniqueIndexes;
+    }
+
+    public void setAutoCreateMigrationUniqueIndexes(boolean autoCreateMigrationUniqueIndexes) {
+        this.autoCreateMigrationUniqueIndexes = autoCreateMigrationUniqueIndexes;
     }
 }
