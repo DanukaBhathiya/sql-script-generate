@@ -256,8 +256,8 @@ public class SqlGenerationService {
                 }
 
                 List<String> values = new ArrayList<>();
-                values.add(toSqlTimestampOrCurrent(migratedTimestamp));
-                values.add(toSqlTimestampOrCurrent(migratedTimestamp));
+                values.add("CURRENT_TIMESTAMP");
+                values.add("CURRENT_TIMESTAMP");
                 values.add(toSqlNumber(templateAmount, "1.0"));
                 values.add(toSqlString(normalize(getRaw(row, "FROM_ACCOUNT"))));
                 values.add(toSqlString(normalize(getRaw(row, "NOTE_TO_RECIPIENT"))));
