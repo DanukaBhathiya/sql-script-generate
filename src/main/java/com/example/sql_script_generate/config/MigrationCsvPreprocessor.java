@@ -19,6 +19,15 @@ import org.apache.commons.csv.CSVRecord;
 
 final class MigrationCsvPreprocessor {
 
+    PreparedCsv prepareUsers(InputStream input) throws IOException {
+        return prepare(input, "users CSV", "pending_user insert", row -> {
+            List<String> missing = missingFields(row, "BANK_EMAIL", "DIGESTED_PASSWORD", "MOBILE");
+            return missing.isEmpty()
+                    ? RowDecision.keep(Map.of())
+                    : RowDecision.skip("missing required field(s): " + String.join(", ", missing));
+        });
+    }
+
     PreparedCsv prepareBeneficiaries(InputStream input) throws IOException {
         return prepare(input, "beneficiaries CSV", "migrate_beneficiary insert", row -> {
             List<String> missing = missingFields(row, "CIF", "ACCOUNT_NUMBER", "NICKNAME", "TYPE");

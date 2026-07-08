@@ -10,6 +10,8 @@ spring:
     name: sql-script-generate
 
 migration:
+  logging:
+    directory: ${MIGRATION_LOG_DIR:logs}
   input:
     directory: ${MIGRATION_INPUT_DIR:csv-files}
     users-file: ${MIGRATION_USERS_FILE:users.csv}
@@ -25,6 +27,7 @@ migration:
     auto-create-migration-unique-indexes: ${MIGRATION_AUTO_CREATE_UNIQUE_INDEXES:true}
 
 logging:
+  config: classpath:logback-spring.xml
   level:
     com.example.sql_script_generate: INFO
   pattern:

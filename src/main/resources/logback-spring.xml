@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="LOG_DIR"
+                    source="migration.logging.directory" defaultValue="logs"/>
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{migrationRequestId:-system}] %logger{36} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="SERVICE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/application.log</file>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/application.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="BATCH_FILE" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <key>migrationRequestId</key>
+            <defaultValue>system</defaultValue>
+        </discriminator>
+        <sift>
+            <appender name="BATCH-${migrationRequestId}" class="ch.qos.logback.core.FileAppender">
+                <file>${LOG_DIR}/batches/migration-${migrationRequestId}.log</file>
+                <append>true</append>
+                <encoder>
+                    <pattern>${LOG_PATTERN}</pattern>
+                    <charset>UTF-8</charset>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
+    <logger name="com.example.sql_script_generate" level="INFO" additivity="true">
+        <appender-ref ref="BATCH_FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SERVICE_FILE"/>
+    </root>
+</configuration>

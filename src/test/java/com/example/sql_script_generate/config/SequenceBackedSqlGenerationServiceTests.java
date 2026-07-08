@@ -10,11 +10,13 @@ import org.junit.jupiter.api.Test;
 
 class SequenceBackedSqlGenerationServiceTests {
 
-    private final SequenceBackedSqlGenerationService service = new SequenceBackedSqlGenerationService();
+    private final SequenceBackedSqlGenerationService service =
+            new SequenceBackedSqlGenerationService(new MigrationExecutionContext());
 
     @Test
     void pendingUserIdUsesDatabaseDefaultAndIgnoresRequestedStart() throws Exception {
-        InputStream usersCsv = csv("CIF,USERNAME\n1001,john\n");
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n"
+                + "1001,john,john@example.test,hash,7000001\n");
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
 
         var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 99999);
@@ -42,7 +44,7 @@ class SequenceBackedSqlGenerationServiceTests {
 
     @Test
     void bulkRowsAreNormalizedAndMissingRequiredTemplateFieldsAreSkipped() throws Exception {
-        InputStream usersCsv = csv("CIF,USERNAME\n");
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n");
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME\n"
                 + "1001,INTERNATIONAL,1234,Overseas\n");
         InputStream templatesCsv = csv("CIF,TEMPLATE_TYPE,TEMPLATE_NAME,RECIPIENT_BANK\n"
@@ -63,6 +65,42 @@ class SequenceBackedSqlGenerationServiceTests {
                 .contains("Row: 1")
                 .contains("missing required field(s): RECIPIENT_BANK");
         assertThat(result.migrationDataCsv()).contains("templates CSV,2,migrate_template");
+    }
+
+    @Test
+    void usersMissingRequiredMigrationFieldsAreSkippedWithOriginalRowNumbers() throws Exception {
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n"
+                + "1001,invalid,,,7000001\n"
+                + "1002,valid,valid@example.test,hash,7000002\n");
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME\n");
+
+        var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
+
+        assertThat(result.sql())
+                .doesNotContain("'INVALID'")
+                .contains("'VALID'");
+        assertThat(result.failureCount()).isEqualTo(1);
+        assertThat(result.insertCount()).isEqualTo(1);
+        assertThat(result.failureSummary())
+                .contains("Source: users CSV")
+                .contains("Row: 1")
+                .contains("missing required field(s): BANK_EMAIL, DIGESTED_PASSWORD");
+        assertThat(result.migrationDataCsv()).contains("users CSV,2,pending_user");
+    }
+
+    @Test
+    void multilineTemplateValuesStillReceiveConflictHandling() throws Exception {
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n");
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME\n");
+        InputStream templatesCsv = csv("CIF,TEMPLATE_TYPE,TEMPLATE_NAME,RECIPIENT_BANK,NOTE_TO_RECIPIENT\n"
+                + "1001,DOMESTIC_PAYMENT,Rent,Local Bank,\"first line\nsecond line\"\n");
+
+        var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, templatesCsv, 1);
+
+        assertThat(result.sql())
+                .contains("'first line\nsecond line'")
+                .containsPattern("(?s)INSERT INTO \\\"migrate_template\\\".*first line\\Rsecond line.*"
+                        + "ON CONFLICT DO NOTHING;");
     }
 
     private InputStream csv(String content) {

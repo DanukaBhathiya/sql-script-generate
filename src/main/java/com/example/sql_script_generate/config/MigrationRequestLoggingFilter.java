@@ -20,6 +20,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class MigrationRequestLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MigrationRequestLoggingFilter.class);
+    private final MigrationExecutionContext executionContext;
+
+    public MigrationRequestLoggingFilter(MigrationExecutionContext executionContext) {
+        this.executionContext = executionContext;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -46,6 +51,7 @@ public class MigrationRequestLoggingFilter extends OncePerRequestFilter {
             LOGGER.info("Migration request completed: status={}, insertCount={}, skippedCount={}, dbExecution={}, durationMs={}",
                     response.getStatus(), response.getHeader("X-Insert-Count"), response.getHeader("X-Fail-Count"),
                     response.getHeader("X-Db-Execution"), durationMs);
+            executionContext.clear();
             MDC.remove("migrationRequestId");
         }
     }
