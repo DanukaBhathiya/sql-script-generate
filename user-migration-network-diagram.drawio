@@ -1,0 +1,182 @@
+<mxfile host="app.diagrams.net" agent="Codex" pages="2">
+  <diagram id="userMigrationUatNetwork" name="UAT Network">
+    <mxGraphModel dx="1373" dy="749" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="uatTitle" parent="1" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;" value="User Migration Network Diagram - UAT" vertex="1">
+          <mxGeometry height="40" width="580" x="310" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="uatBankZone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf2ff;strokeColor=#6c8ebf;fontStyle=1;align=left;spacing=10;verticalAlign=top;" value="Bank Network" vertex="1">
+          <mxGeometry height="260" width="250" x="40" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="uatBffZone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=left;spacing=10;verticalAlign=top;" value="UAT BFF Server Network" vertex="1">
+          <mxGeometry height="520" width="420" x="350" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="uatDbZone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8eefa;strokeColor=#9673a6;fontStyle=1;align=left;spacing=10;verticalAlign=top;" value="UAT Database Network" vertex="1">
+          <mxGeometry height="520" width="310" x="840" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="uatBankUser" parent="1" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Bank Team&#xa;CSV Owners" vertex="1">
+          <mxGeometry height="100" width="70" x="70" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="uatBankPc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Bank Workstation&lt;br&gt;172.16.135.39&lt;br&gt;user.csv&lt;br&gt;eneficiaries.csv&lt;br&gt;templates.csv" vertex="1">
+          <mxGeometry height="110" width="115" x="155" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="uatOpsUser" parent="1" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="DB / Server Team" vertex="1">
+          <mxGeometry height="100" width="70" x="385" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="uatOpsPc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="DB / Server Team&lt;br&gt;cURL trigger&lt;br&gt;file and log review" vertex="1">
+          <mxGeometry height="95" width="125" x="475" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="uatServer46" parent="1" style="shape=mxgraph.cisco.servers.server;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="UAT BFF Server&lt;br&gt;172.16.147.46 / 172.16.147.47&lt;br&gt;&lt;br&gt;User Migration Service&lt;br&gt;Port 8001&lt;br&gt;/api/sql/generate" vertex="1">
+          <mxGeometry height="145" width="260" x="435" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="uatCsvFolder" parent="1" style="shape=folder;tabWidth=40;tabHeight=14;tabPosition=left;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" value="CSV Input Folder&#xa;/opt/user-migration-service/csv-files" vertex="1">
+          <mxGeometry height="70" width="145" x="375" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="uatLogsFolder" parent="1" style="shape=folder;tabWidth=40;tabHeight=14;tabPosition=left;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" value="Logs / Output&#xa;application.log&#xa;batches/*.log&#xa;generated files" vertex="1">
+          <mxGeometry height="80" width="145" x="585" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="uatDb" parent="1" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;" value="UAT Database&#xa;173.16.143.41&#xa;PostgreSQL&#xa;pending_user&#xa;migrate_beneficiary&#xa;migrate_template" vertex="1">
+          <mxGeometry height="145" width="145" x="925" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="uatLegend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacing=8;" value="Legend&#xa;Solid arrow: API, file, or database traffic&#xa;Dashed arrow: operational review&#xa;DB / Server Team is inside the BFF server network" vertex="1">
+          <mxGeometry height="80" width="340" x="40" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="uatSecurity" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;" value="Credentials are shared separately through a secure channel." vertex="1">
+          <mxGeometry height="55" width="310" x="840" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="uatCopyCsv" edge="1" parent="1" source="uatBankPc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;" target="uatCsvFolder" value="Copy CSV files">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="315" y="215" />
+              <mxPoint x="315" y="565" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uatVerifyFiles" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#82b366;" value="Confirm file placement">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="537.5333333333335" y="273" as="sourcePoint" />
+            <mxPoint x="447.53333333333353" y="548" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uatCurl46" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#82b366;" value="HTTP cURL POST&#xa;/api/sql/generate">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="509.51724137931046" y="255" as="sourcePoint" />
+            <mxPoint x="537.0344827586207" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uatReadCsv" edge="1" parent="1" source="uatServer46" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#d6b656;" target="uatCsvFolder" value="Read CSV files">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="uatWriteLogs" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#d6b656;" value="Write logs and output files">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565.0344827586207" y="458" as="sourcePoint" />
+            <mxPoint x="657.5172413793105" y="543" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uatJdbc" edge="1" parent="1" source="uatServer46" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;" target="uatDb" value="JDBC inserts&#xa;PostgreSQL 5432">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="uatReviewLogs" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#82b366;entryX=0;entryY=0;entryDx=92.5;entryDy=14;entryPerimeter=0;" value="Review logs / generated files">
+          <mxGeometry relative="1" x="-0.1516" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="537.5333333333335" y="282" as="sourcePoint" />
+            <mxPoint x="677.5" y="537.9999999999999" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="userMigrationProdNetwork" name="Production Network">
+    <mxGraphModel dx="792" dy="432" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="prodTitle" parent="1" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;" value="User Migration Network Diagram - Production" vertex="1">
+          <mxGeometry height="40" width="600" x="300" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="prodBankZone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf2ff;strokeColor=#6c8ebf;fontStyle=1;align=left;spacing=10;verticalAlign=top;" value="Bank Network" vertex="1">
+          <mxGeometry height="260" width="250" x="40" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="prodBffZone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontStyle=1;align=left;spacing=10;verticalAlign=top;" value="Production BFF Server Network" vertex="1">
+          <mxGeometry height="520" width="420" x="350" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="prodDbZone" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8eefa;strokeColor=#9673a6;fontStyle=1;align=left;spacing=10;verticalAlign=top;" value="Production Database Network" vertex="1">
+          <mxGeometry height="520" width="310" x="840" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="prodBankUser" parent="1" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Bank Team&#xa;CSV Owners" vertex="1">
+          <mxGeometry height="100" width="70" x="70" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="prodBankPc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Bank Workstation&#xa;users.csv&#xa;beneficiaries.csv&#xa;templates.csv" vertex="1">
+          <mxGeometry height="110" width="115" x="155" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="prodOpsUser" parent="1" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="DB / Server Team" vertex="1">
+          <mxGeometry height="100" width="70" x="385" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="prodOpsPc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="DB / Server Team&lt;br&gt;cURL trigger&lt;br&gt;file and log review" vertex="1">
+          <mxGeometry height="95" width="125" x="475" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="prodServer" parent="1" style="shape=mxgraph.cisco.servers.server;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Prod BFF Server&lt;br&gt;172.16.102.132&lt;br&gt;&lt;br&gt;User Migration Service&lt;br&gt;Port 8001&lt;br&gt;/api/sql/generate" vertex="1">
+          <mxGeometry height="145" width="165" x="475" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="prodCsvFolder" parent="1" style="shape=folder;tabWidth=40;tabHeight=14;tabPosition=left;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" value="CSV Input Folder&#xa;/opt/user-migration-service/csv-files" vertex="1">
+          <mxGeometry height="70" width="145" x="375" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="prodLogsFolder" parent="1" style="shape=folder;tabWidth=40;tabHeight=14;tabPosition=left;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" value="Logs / Output&#xa;application.log&#xa;batches/*.log&#xa;generated files" vertex="1">
+          <mxGeometry height="80" width="145" x="585" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="prodDb1" parent="1" style="shape=cylinder3d;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Production Database&#xa;172.16.102.28&#xa;PostgreSQL" vertex="1">
+          <mxGeometry height="125" width="160" x="905" y="295" as="geometry" />
+        </mxCell>
+        <mxCell id="prodDbTables" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;align=left;spacing=8;" value="Target tables&#xa;pending_user&#xa;migrate_beneficiary&#xa;migrate_template" vertex="1">
+          <mxGeometry height="85" width="145" x="960" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="prodLegend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacing=8;" value="Legend&#xa;Solid arrow: API, file, or database traffic&#xa;Dashed arrow: operational review&#xa;DB / Server Team is inside the BFF server network" vertex="1">
+          <mxGeometry height="80" width="340" x="40" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="prodSecurity" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;" value="Credentials are shared separately through a secure channel." vertex="1">
+          <mxGeometry height="55" width="310" x="840" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="prodCopyCsv" edge="1" parent="1" source="prodBankPc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;" target="prodCsvFolder" value="Copy CSV files">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="315" y="215" />
+              <mxPoint x="315" y="565" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="prodVerifyFiles" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#82b366;" value="Confirm file placement">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="537.5384615384617" y="266" as="sourcePoint" />
+            <mxPoint x="447.53846153846166" y="541.0000000000001" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="prodCurl" edge="1" parent="1" source="prodOpsPc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#82b366;" target="prodServer" value="HTTP cURL POST&#xa;/api/sql/generate">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="537.5333333333335" y="243" as="sourcePoint" />
+            <mxPoint x="562.4666666666665" y="418" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="prodReadCsv" edge="1" parent="1" source="prodServer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#d6b656;" target="prodCsvFolder" value="Read CSV files">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="prodWriteLogs" edge="1" parent="1" source="prodServer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#d6b656;" target="prodLogsFolder" value="Write logs and output files">
+          <mxGeometry relative="1" x="0.2432" y="8" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="prodJdbc1" edge="1" parent="1" source="prodServer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;" target="prodDb1" value="JDBC inserts&#xa;PostgreSQL 5432">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="prodReviewLogs" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#82b366;" value="Review logs / generated files">
+          <mxGeometry relative="1" x="0.1139" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="537.5384615384617" y="260" as="sourcePoint" />
+            <mxPoint x="657.5384615384617" y="535.0000000000001" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

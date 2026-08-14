@@ -10,12 +10,19 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
+import com.example.sql_script_generate.config.MigrationExecutionContext;
+import com.example.sql_script_generate.config.MigrationExecutionContext.MigrationSourceFiles;
 import com.example.sql_script_generate.config.MigrationInputProperties;
+import com.example.sql_script_generate.config.MigrationInputProperties.MigrationBatch;
 import com.example.sql_script_generate.service.SqlExecutionService;
 import com.example.sql_script_generate.service.SqlExecutionService.SqlExecutionResult;
 import com.example.sql_script_generate.service.SqlGenerationService;
 import com.example.sql_script_generate.service.SqlGenerationService.SqlGenerationResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,17 +39,20 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/sql")
 public class SqlGenerationController {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SqlGenerationController.class);
     private static final DateTimeFormatter FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private final SqlGenerationService sqlGenerationService;
     private final SqlExecutionService sqlExecutionService;
     private final MigrationInputProperties inputProperties;
+    private final MigrationExecutionContext executionContext;
 
     public SqlGenerationController(SqlGenerationService sqlGenerationService, SqlExecutionService sqlExecutionService,
-            MigrationInputProperties inputProperties) {
+            MigrationInputProperties inputProperties, MigrationExecutionContext executionContext) {
         this.sqlGenerationService = sqlGenerationService;
         this.sqlExecutionService = sqlExecutionService;
         this.inputProperties = inputProperties;
+        this.executionContext = executionContext;
     }
 
     @PostMapping("/generate")
@@ -62,94 +72,157 @@ public class SqlGenerationController {
             outputDirectory = resolveOutputDirectory(outputDir);
         }
 
-        Path usersCsv = inputProperties.usersPath();
-        Path beneficiariesCsv = inputProperties.beneficiariesPath();
-        Path templatesCsv = inputProperties.templatesPath();
-        requireInputFile(usersCsv, "users CSV");
-        requireInputFile(beneficiariesCsv, "beneficiaries CSV");
-        boolean hasTemplatesCsv = Files.isRegularFile(templatesCsv);
-
-        SqlGenerationResult result;
-        try (InputStream usersInput = Files.newInputStream(usersCsv);
-                InputStream beneficiariesInput = Files.newInputStream(beneficiariesCsv);
-                InputStream templatesInput = hasTemplatesCsv ? Files.newInputStream(templatesCsv) : null) {
-            result = sqlGenerationService.generateSqlWithSummary(
-                    usersInput,
-                    beneficiariesInput,
-                    templatesInput,
-                    userIdStart
-            );
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        List<MigrationBatch> batches;
+        try {
+            batches = inputProperties.discoverBatches();
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
         }
 
-        String baseFileName = "migration_inserts_" + LocalDateTime.now().format(FILE_TIMESTAMP);
-        String fileName = baseFileName + ".sql";
-        String failSummaryFileName = baseFileName + "_fail_summary.log";
-        String migrationDataFileName = baseFileName + "_data.csv";
-        Path savedPath = null;
-        Path failSummaryPath = null;
-        Path migrationDataPath = null;
+        List<Path> savedPaths = new ArrayList<>();
+        List<Path> failSummaryPaths = new ArrayList<>();
+        List<Path> migrationDataPaths = new ArrayList<>();
+        List<String> batchFileDescriptions = new ArrayList<>();
+        StringBuilder responseSql = new StringBuilder();
+        int totalFailureCount = 0;
+        int totalInsertCount = 0;
+        int totalExpectedDbInsertCount = 0;
 
-        if (saveToDisk) {
-            Files.createDirectories(outputDirectory);
-            savedPath = outputDirectory.resolve(fileName);
-            failSummaryPath = outputDirectory.resolve(failSummaryFileName);
-            migrationDataPath = outputDirectory.resolve(migrationDataFileName);
-            Files.writeString(savedPath, result.sql(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            Files.writeString(failSummaryPath, result.failureSummary(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            Files.writeString(migrationDataPath, result.migrationDataCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        }
+        for (MigrationBatch batch : batches) {
+            Path usersCsv = batch.usersPath();
+            Path beneficiariesCsv = batch.beneficiariesPath();
+            Path templatesCsv = batch.templatesPath();
+            requireInputFile(usersCsv, batch.id(), "users CSV");
+            requireInputFile(beneficiariesCsv, batch.id(), "beneficiaries CSV");
+            boolean hasTemplatesCsv = Files.isRegularFile(templatesCsv);
+            logSourceFileReadStarted(batch.id(), "users CSV", usersCsv, true);
+            logSourceFileReadStarted(batch.id(), "beneficiaries CSV", beneficiariesCsv, true);
+            if (hasTemplatesCsv) {
+                logSourceFileReadStarted(batch.id(), "templates CSV", templatesCsv, false);
+            } else {
+                LOGGER.info("Migration source file read skipped: batchId={}, sourceFile=templates CSV, path={}, reason=optional file not found",
+                        batch.id(), templatesCsv.toAbsolutePath().normalize());
+            }
 
-        SqlExecutionResult executionResult = null;
-        if (executeToDb) {
             try {
-                executionResult = sqlExecutionService.executeGeneratedSql(result.sql(), result.insertCount());
-            } catch (IllegalStateException ex) {
+            SqlGenerationResult result;
+            executionContext.setBatch(batch.id(), new MigrationSourceFiles(usersCsv, beneficiariesCsv, templatesCsv));
+            try (InputStream usersInput = Files.newInputStream(usersCsv);
+                    InputStream beneficiariesInput = Files.newInputStream(beneficiariesCsv);
+                    InputStream templatesInput = hasTemplatesCsv ? Files.newInputStream(templatesCsv) : null) {
+                result = sqlGenerationService.generateSqlWithSummary(
+                        usersInput,
+                        beneficiariesInput,
+                        templatesInput,
+                        userIdStart
+                );
+            } catch (IllegalArgumentException ex) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-            } catch (RuntimeException ex) {
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Database execution failed: " + ex.getMessage());
+            }
+            result.fileSummaries().forEach(summary -> LOGGER.info(
+                    "Migration source file read completed: batchId={}, sourceFile={}, rowsRead={}, generatedInsertCount={}, skippedCount={}",
+                    batch.id(), summary.sourceFile(), summary.rowsRead(), summary.generatedInsertCount(), summary.skippedCount()));
+
+            String batchSafeName = sanitizeFilePart(batch.id());
+            String baseFileName = "default".equals(batch.id())
+                    ? "migration_inserts_" + LocalDateTime.now().format(FILE_TIMESTAMP)
+                    : "migration_inserts_" + batchSafeName + "_" + LocalDateTime.now().format(FILE_TIMESTAMP);
+            String fileName = baseFileName + ".sql";
+            String failSummaryFileName = baseFileName + "_fail_summary.log";
+            String migrationDataFileName = baseFileName + "_data.csv";
+
+            if (saveToDisk) {
+                Files.createDirectories(outputDirectory);
+                Path savedPath = outputDirectory.resolve(fileName);
+                Path failSummaryPath = outputDirectory.resolve(failSummaryFileName);
+                Path migrationDataPath = outputDirectory.resolve(migrationDataFileName);
+                Files.writeString(savedPath, result.sql(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(failSummaryPath, result.failureSummary(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(migrationDataPath, result.migrationDataCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                savedPaths.add(savedPath);
+                failSummaryPaths.add(failSummaryPath);
+                migrationDataPaths.add(migrationDataPath);
+                LOGGER.info("Migration output file written: batchId={}, fileType=sql, path={}, bytes={}",
+                        batch.id(), savedPath.toAbsolutePath().normalize(), Files.size(savedPath));
+                LOGGER.info("Migration output file written: batchId={}, fileType=fail-summary, path={}, bytes={}",
+                        batch.id(), failSummaryPath.toAbsolutePath().normalize(), Files.size(failSummaryPath));
+                LOGGER.info("Migration output file written: batchId={}, fileType=migration-data, path={}, bytes={}",
+                        batch.id(), migrationDataPath.toAbsolutePath().normalize(), Files.size(migrationDataPath));
+            }
+
+            if (executeToDb) {
+                try {
+                    SqlExecutionResult executionResult = sqlExecutionService.executeGeneratedSql(result.sql(), result.insertCount());
+                    totalExpectedDbInsertCount += executionResult.expectedInsertCount();
+                } catch (IllegalStateException ex) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+                } catch (RuntimeException ex) {
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Database execution failed: " + ex.getMessage());
+                }
+            }
+
+            appendBatchSql(responseSql, batch, result.sql());
+            batchFileDescriptions.add(batch.id() + ":"
+                    + usersCsv.getFileName() + ","
+                    + beneficiariesCsv.getFileName() + ","
+                    + (hasTemplatesCsv ? templatesCsv.getFileName() : "templates CSV not found"));
+            totalFailureCount += result.failureCount();
+            totalInsertCount += result.insertCount();
+            } finally {
+                executionContext.clear();
             }
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.TEXT_PLAIN);
-        headers.setContentDisposition(ContentDisposition.attachment().filename(fileName).build());
+        String responseFileName = batches.size() == 1 && "default".equals(batches.get(0).id())
+                ? savedPaths.stream().findFirst().map(path -> path.getFileName().toString())
+                        .orElse("migration_inserts_" + LocalDateTime.now().format(FILE_TIMESTAMP) + ".sql")
+                : "migration_inserts_batches_" + LocalDateTime.now().format(FILE_TIMESTAMP) + ".sql";
+        headers.setContentDisposition(ContentDisposition.attachment().filename(responseFileName).build());
 
-        if (savedPath != null) {
-            headers.add("X-Saved-File", savedPath.toAbsolutePath().toString());
+        if (!savedPaths.isEmpty()) {
+            headers.add("X-Saved-File", savedPaths.get(0).toAbsolutePath().toString());
+            headers.add("X-Saved-Files", joinPaths(savedPaths));
         }
-        if (failSummaryPath != null) {
-            headers.add("X-Fail-Summary-File", failSummaryPath.toAbsolutePath().toString());
+        if (!failSummaryPaths.isEmpty()) {
+            headers.add("X-Fail-Summary-File", failSummaryPaths.get(0).toAbsolutePath().toString());
+            headers.add("X-Fail-Summary-Files", joinPaths(failSummaryPaths));
         }
-        if (migrationDataPath != null) {
-            headers.add("X-Migration-Data-File", migrationDataPath.toAbsolutePath().toString());
+        if (!migrationDataPaths.isEmpty()) {
+            headers.add("X-Migration-Data-File", migrationDataPaths.get(0).toAbsolutePath().toString());
+            headers.add("X-Migration-Data-Files", joinPaths(migrationDataPaths));
         }
         if (outputDirectory != null) {
             headers.add("X-Output-Directory", outputDirectory.toString());
         }
-        headers.add("X-Fail-Count", String.valueOf(result.failureCount()));
-        headers.add("X-Insert-Count", String.valueOf(result.insertCount()));
+        headers.add("X-Batch-Count", String.valueOf(batches.size()));
+        headers.add("X-Migration-Batches", String.join(";", batchFileDescriptions));
+        headers.add("X-Fail-Count", String.valueOf(totalFailureCount));
+        headers.add("X-Insert-Count", String.valueOf(totalInsertCount));
         headers.add("X-Db-Execution", executeToDb ? "EXECUTED" : "SKIPPED");
-        if (executionResult != null) {
-            headers.add("X-Db-Expected-Insert-Count", String.valueOf(executionResult.expectedInsertCount()));
+        if (executeToDb) {
+            headers.add("X-Db-Expected-Insert-Count", String.valueOf(totalExpectedDbInsertCount));
         }
 
-        headers.add("X-Users-File", usersCsv.getFileName().toString());
-        headers.add("X-Beneficiary-File", beneficiariesCsv.getFileName().toString());
-        if (hasTemplatesCsv) {
-            headers.add("X-Template-File", templatesCsv.getFileName().toString());
+        if (batches.size() == 1) {
+            MigrationBatch batch = batches.get(0);
+            headers.add("X-Users-File", batch.usersPath().getFileName().toString());
+            headers.add("X-Beneficiary-File", batch.beneficiariesPath().getFileName().toString());
+            if (Files.isRegularFile(batch.templatesPath())) {
+                headers.add("X-Template-File", batch.templatesPath().getFileName().toString());
+            }
         }
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(result.sql().getBytes(StandardCharsets.UTF_8));
+                .body(responseSql.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    private void requireInputFile(Path path, String description) {
+    private void requireInputFile(Path path, String batchId, String description) {
         if (!Files.isRegularFile(path)) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Configured " + description + " file was not found: " + path);
+                    "Configured " + description + " file was not found for " + batchId + ": " + path);
         }
     }
 
@@ -162,5 +235,34 @@ public class SqlGenerationController {
         } catch (InvalidPathException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "outputDir is not a valid path");
         }
+    }
+
+    private void logSourceFileReadStarted(String batchId, String sourceFile, Path path, boolean required) throws IOException {
+        LOGGER.info("Migration source file read started: batchId={}, sourceFile={}, path={}, required={}, sizeBytes={}",
+                batchId, sourceFile, path.toAbsolutePath().normalize(), required, Files.size(path));
+    }
+
+    private void appendBatchSql(StringBuilder responseSql, MigrationBatch batch, String sql) {
+        if (!responseSql.isEmpty()) {
+            responseSql.append(System.lineSeparator()).append(System.lineSeparator());
+        }
+        if (!"default".equals(batch.id())) {
+            responseSql.append("-- Migration batch: ").append(batch.id()).append(System.lineSeparator());
+            responseSql.append("-- Users file: ").append(batch.usersPath().getFileName()).append(System.lineSeparator());
+            responseSql.append("-- Beneficiaries file: ").append(batch.beneficiariesPath().getFileName()).append(System.lineSeparator());
+            responseSql.append("-- Templates file: ").append(batch.templatesPath().getFileName()).append(System.lineSeparator());
+        }
+        responseSql.append(sql);
+    }
+
+    private String joinPaths(List<Path> paths) {
+        return paths.stream()
+                .map(path -> path.toAbsolutePath().toString())
+                .reduce((left, right) -> left + ";" + right)
+                .orElse("");
+    }
+
+    private String sanitizeFilePart(String value) {
+        return value.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 }

@@ -29,7 +29,9 @@ public class SqlGenerationService {
             "digested_password", "email", "email_matched", "email_mismatch_count", "first_name", "full_name",
             "id_expire", "id_type", "identity_number", "last_name", "middle_name", "mobile",
             "password_reference", "phase", "preferred_language", "status", "street1", "street2", "street3",
-            "username", "date_of_birth", "registered_account_number", "user_group_id", "migrate_user"
+            "username", "migrated_username", "date_of_birth", "registered_account_number", "user_group_id",
+            "migrate_user", "fda_account_remarks", "number_of_otp_attempts", "number_of_login_attempts",
+            "fda_account_created_date_time", "fda_account_status"
     );
     private static final List<String> BENEFICIARY_COLUMNS = List.of(
             "cif", "created_date_time", "updated_date_time", "account_number", "bank_code", "bank_name",
@@ -57,6 +59,7 @@ public class SqlGenerationService {
         List<CSVRecord> beneficiaries = readCsv(beneficiariesCsvStream);
         List<CSVRecord> templates = templatesCsvStream == null ? new ArrayList<>() : readCsv(templatesCsvStream);
         List<FailureScenario> failureScenarios = new ArrayList<>();
+        int skippedUsers = 0;
 
         int nextUserId = userIdStart;
         int nextInsertIndex = 1;
@@ -72,8 +75,10 @@ public class SqlGenerationService {
                 + "\"bank_email\", \"cif\", \"city\", \"country\", \"digested_password\", \"email\", \"email_matched\", "
                 + "\"email_mismatch_count\", \"first_name\", \"full_name\", \"id_expire\", \"id_type\", \"identity_number\", "
                 + "\"last_name\", \"middle_name\", \"mobile\", \"password_reference\", \"phase\", \"preferred_language\", "
-                + "\"status\", \"street1\", \"street2\", \"street3\", \"username\", \"date_of_birth\", "
-                + "\"registered_account_number\", \"user_group_id\", \"migrate_user\") VALUES ";
+                + "\"status\", \"street1\", \"street2\", \"street3\", \"username\", \"migrated_username\", "
+                + "\"date_of_birth\", \"registered_account_number\", \"user_group_id\", \"migrate_user\", \"fda_account_remarks\", "
+                + "\"number_of_otp_attempts\", \"number_of_login_attempts\", \"fda_account_created_date_time\", "
+                + "\"fda_account_status\") VALUES ";
 
         Set<String> seenCif = new HashSet<>();
         Set<String> seenUsername = new HashSet<>();
@@ -100,6 +105,21 @@ public class SqlGenerationService {
             String dateOfBirth = parseDateOfBirth(normalize(getRaw(row, "DATE_OF_BIRTH")));
             String idType = mapIdType(normalize(getRaw(row, "ID_TYPE")));
             String userGroupName = normalize(getRaw(row, "USER_GROUP", "USER GROUP", "USERGROUP", "USER_GROUP_NAME", "USER GROUP NAME"));
+            String fdaAccountCreatedOn = normalize(getRaw(row,
+                    "FDAACCOUNT_CREATED_ON", "FDAACCOUNT CREATED ON", "FDA_ACCOUNT_CREATED_ON",
+                    "FDA ACCOUNT CREATED ON", "FDAAccount Created on"));
+            String fdaAccountStatus = normalize(getRaw(row,
+                    "FDA_ACCOUNT_STATUS", "FDA ACCOUNT STATUS", "FDAACCOUNT_STATUS",
+                    "FDAACCOUNT STATUS", "ACCOUNT_STATUS", "STATUS"));
+            String remarks = normalize(getRaw(row,
+                    "REMARKS", "LOCK_REASON", "LOCK REASON", "REMARKS_LOCK_REASON",
+                    "REMARKS / LOCK REASON", "REMARKS/LOCK_REASON"));
+            String numberOfOtpAttempts = normalize(getRaw(row,
+                    "NUMBER_OF_OTP_ATTEMPTS", "NUMBER OF OTP ATTEMPTS", "OTP_ATTEMPTS",
+                    "OTP ATTEMPTS"));
+            String numberOfLoginAttempts = normalize(getRaw(row,
+                    "NUMBER_OF_LOGIN_ATTEMPTS", "NUMBER OF LOGIN ATTEMPTS", "LOGIN_ATTEMPTS",
+                    "LOGIN ATTEMPTS"));
 
             List<String> duplicateFields = new ArrayList<>();
             registerUniqueField(seenCif, normalizeUniqueKey(cif, false), "cif", duplicateFields);
@@ -121,6 +141,7 @@ public class SqlGenerationService {
                         "pending_user insert",
                         "query skipped without being created because the row has " + reason
                 ));
+                skippedUsers++;
                 continue;
             }
 
@@ -152,10 +173,16 @@ public class SqlGenerationService {
             values.add(toSqlString(normalize(getRaw(row, "STREET2"))));
             values.add(toSqlString(normalize(getRaw(row, "STREET3"))));
             values.add(toSqlString(username));
+            values.add(toSqlString(username));
             values.add(toSqlString(dateOfBirth));
             values.add(toSqlString(normalize(getRaw(row, "REGISTERED_ACCOUNT_NUMBER"))));
             values.add(toSqlUserGroupId(userGroupName));
             values.add("TRUE");
+            values.add(toSqlString(remarks));
+            values.add(toSqlIntegerOrNull(numberOfOtpAttempts));
+            values.add(toSqlIntegerOrNull(numberOfLoginAttempts));
+            values.add(toSqlTimestampOrCurrent(fdaAccountCreatedOn));
+            values.add(toSqlString(fdaAccountStatus == null ? "IN_PROGRESS" : fdaAccountStatus));
 
             sql.append(pendingUserPrefix)
                     .append("(")
@@ -291,8 +318,18 @@ public class SqlGenerationService {
             }
         }
 
+        int generatedInsertCount = nextInsertIndex - 1;
+        int generatedUsers = users.size() - skippedUsers;
+        int generatedBeneficiaries = beneficiaries.size();
+        int generatedTemplates = templates.size();
+        List<MigrationFileSummary> fileSummaries = List.of(
+                new MigrationFileSummary("users CSV", users.size(), generatedUsers, skippedUsers),
+                new MigrationFileSummary("beneficiaries CSV", beneficiaries.size(), generatedBeneficiaries, 0),
+                new MigrationFileSummary("templates CSV", templates.size(), generatedTemplates, 0)
+        );
+
         return new SqlGenerationResult(sql.toString(), buildFailureSummary(failureScenarios),
-                migrationDataCsv.toString(), failureScenarios.size(), nextInsertIndex - 1);
+                migrationDataCsv.toString(), failureScenarios.size(), generatedInsertCount, fileSummaries);
     }
 
     private void appendMigrationDataCsvRows(StringBuilder csv, int insertIndex, String source, long sourceRow,
@@ -365,6 +402,12 @@ public class SqlGenerationService {
 
     private String getRaw(CSVRecord row, String header) {
         if (!row.isMapped(header)) {
+            String normalizedHeader = normalizeHeader(header);
+            for (String mappedHeader : row.toMap().keySet()) {
+                if (normalizeHeader(mappedHeader).equals(normalizedHeader)) {
+                    return row.get(mappedHeader);
+                }
+            }
             return null;
         }
         return row.get(header);
@@ -413,6 +456,17 @@ public class SqlGenerationService {
             return normalized;
         }
         return defaultValue;
+    }
+
+    private String toSqlIntegerOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return "NULL";
+        }
+        String normalized = value.trim();
+        if (normalized.matches("^-?\\d+$")) {
+            return normalized;
+        }
+        return "NULL";
     }
 
     private String toSqlTimestampOrCurrent(String value) {
@@ -468,6 +522,10 @@ public class SqlGenerationService {
             return null;
         }
         return caseInsensitive ? trimmed.toLowerCase(Locale.ROOT) : trimmed;
+    }
+
+    private String normalizeHeader(String value) {
+        return value == null ? "" : value.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
     }
 
     private void registerUniqueField(Set<String> seenValues, String normalizedKey, String fieldName, List<String> duplicateFields) {
@@ -535,7 +593,15 @@ public class SqlGenerationService {
         return null;
     }
 
-    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount, int insertCount) {
+    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount,
+            int insertCount, List<MigrationFileSummary> fileSummaries) {
+        public SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount,
+                int insertCount) {
+            this(sql, failureSummary, migrationDataCsv, failureCount, insertCount, List.of());
+        }
+    }
+
+    public record MigrationFileSummary(String sourceFile, int rowsRead, int generatedInsertCount, int skippedCount) {
     }
 
     private record FailureScenario(String source, long rowNumber, String queryName, String reason) {

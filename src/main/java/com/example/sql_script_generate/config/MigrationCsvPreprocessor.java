@@ -63,11 +63,13 @@ final class MigrationCsvPreprocessor {
             List<String> headers = parser.getHeaderNames();
             Map<Long, Long> sourceRows = new LinkedHashMap<>();
             List<SkippedRow> skippedRows = new ArrayList<>();
+            long totalRows = 0;
 
             try (CSVPrinter printer = new CSVPrinter(writer,
                     CSVFormat.DEFAULT.builder().setHeader(headers.toArray(String[]::new)).build())) {
                 long outputRow = 0;
                 for (CSVRecord row : parser) {
+                    totalRows++;
                     RowDecision decision = validator.validate(row);
                     if (decision.skipReason() != null) {
                         skippedRows.add(new SkippedRow(source, row.getRecordNumber(), query, decision.skipReason()));
@@ -84,7 +86,8 @@ final class MigrationCsvPreprocessor {
             return new PreparedCsv(
                     new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8)),
                     sourceRows,
-                    skippedRows);
+                    skippedRows,
+                    totalRows);
         }
     }
 
@@ -103,9 +106,9 @@ final class MigrationCsvPreprocessor {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    record PreparedCsv(InputStream stream, Map<Long, Long> sourceRows, List<SkippedRow> skippedRows) {
+    record PreparedCsv(InputStream stream, Map<Long, Long> sourceRows, List<SkippedRow> skippedRows, long totalRows) {
         static PreparedCsv empty() {
-            return new PreparedCsv(null, Map.of(), List.of());
+            return new PreparedCsv(null, Map.of(), List.of(), 0);
         }
     }
 

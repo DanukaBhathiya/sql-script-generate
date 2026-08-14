@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
 
+import com.example.sql_script_generate.service.SqlGenerationService.MigrationFileSummary;
+
 class SequenceBackedSqlGenerationServiceTests {
 
     private final SequenceBackedSqlGenerationService service =
@@ -65,6 +67,9 @@ class SequenceBackedSqlGenerationServiceTests {
                 .contains("Row: 1")
                 .contains("missing required field(s): RECIPIENT_BANK");
         assertThat(result.migrationDataCsv()).contains("templates CSV,2,migrate_template");
+        assertThat(result.fileSummaries())
+                .contains(new MigrationFileSummary("beneficiaries CSV", 1, 1, 0))
+                .contains(new MigrationFileSummary("templates CSV", 2, 1, 1));
     }
 
     @Test
@@ -86,6 +91,8 @@ class SequenceBackedSqlGenerationServiceTests {
                 .contains("Row: 1")
                 .contains("missing required field(s): BANK_EMAIL, DIGESTED_PASSWORD");
         assertThat(result.migrationDataCsv()).contains("users CSV,2,pending_user");
+        assertThat(result.fileSummaries())
+                .contains(new MigrationFileSummary("users CSV", 2, 1, 1));
     }
 
     @Test

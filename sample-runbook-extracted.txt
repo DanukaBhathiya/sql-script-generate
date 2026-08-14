@@ -1,0 +1,160 @@
+Operational Runbook: Aurionpro User 
+Migration & Status Update 
+1. Document Overview 
+This runbook provides step-by-step operational instructions for executing the  Migration 
+processes into the Aurionpro system. It is designed for Business Unit (BU) operators and IT 
+administrators to ensure safe, repeatable, and traceable data loads. 
+ 
+2. Prerequisites & Environment Setup SSO Migration 
+Owner: Business Unit (BU) Team | Timing: Before uploading any migration payload  
+ 
+Check Task Description / Action Required 
+[   ] Environment 
+Check 
+Confirm read/write access to the Source, Destination 
+folders. 
+[   ] Tracker 
+Verification 
+Open migration_tracker.csv to find the last used sequence 
+number. Close it immediately after checking so the script 
+is not locked out. 
+[   ] File Naming Ensure the file is named exactly 
+User_Migration_Batch_{Sequence}.csv using the next 
+available zero-padded sequence (e.g., 
+..._Batch_00005.csv). 
+[   ] Mandatory 
+Columns 
+Verify all headers match the Data Dictionary exactly (e.g., 
+firstname, loginid, cifnumber, noOfLoginAttempts). 
+[   ] Date 
+Formatting 
+Confirm all date columns (e.g., effectivefrom, 
+lastPasswordChangeOn) are strictly formatted as 
+dd/mm/yy. 
+Confirm + is added for the mobile number. 
+[N/A] Initial Status 
+Set 
+If users are to be created as inactive, verify the 
+accountStatus column is populated with UC. 
+[   ] Data Cleansing Ensure there are no trailing spaces in critical fields like 
+loginid or cifnumber. 
+ 
+ 
+ 
+3. SSO Migration Execution & Monitoring Checklist  
+Owner: IT Operator / Admin | Timing: During the script run  
+ 
+Check Task Description / Action Required 
+[   ] Upload File Place the validated CSV file into the designated Source folder. 
+[   ] Trigger Script Allow the automated scheduler to pick it up, or execute 
+manually via python run_migration.py. 
+[   ] Log 
+Verification 
+Open the Logs folder and confirm a new .log file matching the 
+batch name has been created. 
+[   ] Live 
+Monitoring 
+Open the log file and verify that [SUCCESS] or [FAILED] 
+transaction blocks are actively generating without system crash 
+errors. 
+ 
+ 
+4. SSO Post-Migration Verification Checklist  
+Owner: IT Operator / Admin | Timing: Immediately after the migration script finishes  
+ 
+Check Task Description / Action Required 
+[   ] Success 
+File Check 
+Check the Destination folder for 
+User_Migration_Batch_{Sequence}_Success.csv. 
+[   ] UUIDs 
+Secured 
+Verify that the Success file contains the newly generated uuid 
+column (required for future status updates). 
+[   ] Error File 
+Check 
+Look for User_Migration_Batch_{Sequence}_Error.csv. If present, 
+proceed to the Error Remediation Checklist. 
+[   ] Tracker 
+Updated 
+Open migration_tracker.csv and verify the batch is logged with the 
+correct "Total Migrated" and "Total Failed" counts. 
+[   ] File 
+moving 
+Rename the success file “CorporateUser.csv”and place it in the 
+aurionpro source folder. 
+ 
+6. SSO Error Remediation Workflow 
+If an _Error.csv file is generated in the Destination folder, follow this standard operating 
+procedure to rectify the data. 
+1. Download & Analyze: Download User_Migration_Batch_{Sequence}_Error.csv. Scroll 
+to the far right columns to read the ErrorCode and ErrorDescription. 
+2. Consult Error Dictionary: 
+ 
+Error Code Meaning Action Required 
+ERR_001 Missing 
+Mandatory 
+Field 
+Fill in the missing data (e.g., loginid) in the 
+affected rows. 
+ERR_003 Invalid Status / 
+Type 
+Correct isCorpUser or accountStatus 
+values to match acceptable system 
+inputs. 
+ERR_004 Duplicate Login 
+ID 
+Change the loginid to a unique value; the 
+user already exists. 
+ERR_006 Invalid Date 
+Format 
+Fix dates to ensure they strictly follow 
+dd/mm/yy. 
+ 
+3. Rectify Data: Correct the errors directly within the CSV file. Remove the ErrorCode 
+and ErrorDescription columns once fixed. 
+4. Rename & Re-upload: Save the file with the next available sequence number (e.g., if 
+Batch 00004 failed, save the corrected file as Batch 00005). Upload it to the Source 
+folder and re-run the process. 
+7. Aurintpro Prerequisites & Environment Setup  
+Migration 
+Owner: Business Unit (BU) Team | Timing: Before uploading any migration payload  
+ 
+Check Task Description / Action Required 
+[ ] Success File 
+Check 
+Place the validated CSV file into the designated Source 
+folder. 
+ 
+ 
+ 
+8. Aurintpro Migration Execution & Monitoring Checklist  
+Owner: Business Unit (BU) Team | Timing: Before uploading any migration payload  
+ 
+Check Task Description / Action Required 
+   
+ 
+ 
+9. Aurintpro Post-Migration Verification Checklist  
+Owner: Business Unit (BU) Team | Timing: Before uploading any migration payload  
+ 
+Check Task Description / Action Required 
+   
+ 
+ 
+10. Troubleshooting FAQ 
+Q: I dropped the file in the Source folder, but nothing is happening. 
+● Action: Check the migration_tracker.csv. If the sequence number of your file is already 
+logged as executed, the script is ignoring it. Rename your file to the next available 
+sequence. 
+Q: All users failed with ERR_006 (Invalid Date Format). 
+● Action: Check your Excel/CSV export settings. Excel often auto-formats dates. Ensure 
+the raw text data is strictly dd/mm/yy before saving. 
+Q: The status update script says "User Not Found". 
+● Action: Verify that you are using the system-generated UUID from the _Success.csv file, 
+not the loginid or cifnumber. 
+Q: The script crashed and no logs were generated. 
+● Action: Verify folder permissions. The system account running the Python script must 
+have Write access to the Logs and Destination directories. Check the primary system 
+event viewer or Cron logs for permission denied errors. 
+ 

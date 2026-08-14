@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import com.example.sql_script_generate.config.MigrationCsvPreprocessor.PreparedCsv;
 import com.example.sql_script_generate.config.MigrationCsvPreprocessor.SkippedRow;
 import com.example.sql_script_generate.service.SqlGenerationService;
+import com.example.sql_script_generate.service.SqlGenerationService.MigrationFileSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
@@ -55,7 +56,8 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
         String failureSummary = mergeFailureSummary(result.failureSummary(), result.failureCount(), preprocessorFailures);
 
         SqlGenerationResult sequenceBackedResult = new SqlGenerationResult(sql, failureSummary, migrationDataCsv,
-                result.failureCount() + preprocessorFailures.size(), result.insertCount());
+                result.failureCount() + preprocessorFailures.size(), result.insertCount(),
+                mergeFileSummaries(result.fileSummaries(), users, beneficiaries, templates));
         executionContext.setMigrationDataCsv(migrationDataCsv);
         if (sequenceBackedResult.failureCount() > 0) {
             LOGGER.warn("SQL generation skipped rows: skippedCount={}", sequenceBackedResult.failureCount());
@@ -136,5 +138,27 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
                     .append(failure.reason()).append(System.lineSeparator()).append(System.lineSeparator());
         }
         return output.toString();
+    }
+
+    private List<MigrationFileSummary> mergeFileSummaries(List<MigrationFileSummary> generatedSummaries,
+            PreparedCsv users, PreparedCsv beneficiaries, PreparedCsv templates) {
+        return List.of(
+                mergeFileSummary("users CSV", generatedSummaries, users),
+                mergeFileSummary("beneficiaries CSV", generatedSummaries, beneficiaries),
+                mergeFileSummary("templates CSV", generatedSummaries, templates)
+        );
+    }
+
+    private MigrationFileSummary mergeFileSummary(String sourceFile, List<MigrationFileSummary> generatedSummaries,
+            PreparedCsv preparedCsv) {
+        MigrationFileSummary generated = generatedSummaries.stream()
+                .filter(summary -> sourceFile.equals(summary.sourceFile()))
+                .findFirst()
+                .orElse(new MigrationFileSummary(sourceFile, 0, 0, 0));
+        return new MigrationFileSummary(
+                sourceFile,
+                Math.toIntExact(preparedCsv.totalRows()),
+                generated.generatedInsertCount(),
+                preparedCsv.skippedRows().size() + generated.skippedCount());
     }
 }
