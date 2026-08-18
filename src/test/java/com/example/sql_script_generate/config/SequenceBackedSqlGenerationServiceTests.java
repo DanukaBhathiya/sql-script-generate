@@ -26,6 +26,9 @@ class SequenceBackedSqlGenerationServiceTests {
         assertThat(result.sql())
                 .contains("VALUES (DEFAULT, CURRENT_TIMESTAMP")
                 .doesNotContain("VALUES (99999,");
+        assertThat(result.userSuccessCsv())
+                .contains("cif,username,registered_account_number")
+                .contains("1001,john,8000000001");
         assertThat(result.migrationDataCsv()).contains("1,users CSV,1,pending_user,id,DEFAULT");
     }
 
@@ -60,6 +63,8 @@ class SequenceBackedSqlGenerationServiceTests {
                 .doesNotContain("'INTERNATIONAL'")
                 .doesNotContain("'Own account'")
                 .contains("'Rent'");
+        assertThat(result.userSuccessCsv())
+                .contains("cif,username,registered_account_number");
         assertThat(result.failureCount()).isEqualTo(1);
         assertThat(result.insertCount()).isEqualTo(2);
         assertThat(result.failureSummary())
@@ -90,6 +95,9 @@ class SequenceBackedSqlGenerationServiceTests {
                 .contains("Source: users CSV")
                 .contains("Row: 1")
                 .contains("missing required field(s): BANK_EMAIL, DIGESTED_PASSWORD");
+        assertThat(result.userFailureCsv())
+                .contains("cif,reason")
+                .contains("1001,\"missing required field(s): BANK_EMAIL, DIGESTED_PASSWORD\"");
         assertThat(result.migrationDataCsv()).contains("users CSV,2,pending_user");
         assertThat(result.fileSummaries())
                 .contains(new MigrationFileSummary("users CSV", 2, 1, 1));

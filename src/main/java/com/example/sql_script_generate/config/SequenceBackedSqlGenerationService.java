@@ -49,6 +49,7 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
                 users.sourceRows(), beneficiaries.sourceRows(), templates.sourceRows()).replaceAll(
                 "(?m)^(\\d+,users CSV,\\d+,pending_user,id,)\\d+(\\r?)$",
                 "$1DEFAULT$2");
+        String userFailureCsv = mergeUserFailureCsv(result.userFailureCsv(), users.skippedRows());
 
         List<SkippedRow> preprocessorFailures = new java.util.ArrayList<>(users.skippedRows());
         preprocessorFailures.addAll(beneficiaries.skippedRows());
@@ -56,7 +57,7 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
         String failureSummary = mergeFailureSummary(result.failureSummary(), result.failureCount(), preprocessorFailures);
 
         SqlGenerationResult sequenceBackedResult = new SqlGenerationResult(sql, failureSummary, migrationDataCsv,
-                result.failureCount() + preprocessorFailures.size(), result.insertCount(),
+                result.userSuccessCsv(), userFailureCsv, result.failureCount() + preprocessorFailures.size(), result.insertCount(),
                 mergeFileSummaries(result.fileSummaries(), users, beneficiaries, templates));
         executionContext.setMigrationDataCsv(migrationDataCsv);
         if (sequenceBackedResult.failureCount() > 0) {
@@ -140,6 +141,20 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
         return output.toString();
     }
 
+    private String mergeUserFailureCsv(String csv, List<SkippedRow> userFailures) {
+        if (userFailures.isEmpty()) {
+            return csv;
+        }
+        StringBuilder output = new StringBuilder(csv);
+        for (SkippedRow failure : userFailures) {
+            appendCsvValue(output, failure.cif());
+            output.append(",");
+            appendCsvValue(output, failure.reason());
+            output.append(System.lineSeparator());
+        }
+        return output.toString();
+    }
+
     private List<MigrationFileSummary> mergeFileSummaries(List<MigrationFileSummary> generatedSummaries,
             PreparedCsv users, PreparedCsv beneficiaries, PreparedCsv templates) {
         return List.of(
@@ -160,5 +175,17 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
                 Math.toIntExact(preparedCsv.totalRows()),
                 generated.generatedInsertCount(),
                 preparedCsv.skippedRows().size() + generated.skippedCount());
+    }
+
+    private void appendCsvValue(StringBuilder csv, String value) {
+        if (value == null) {
+            return;
+        }
+        boolean needsQuoting = value.contains(",") || value.contains("\"") || value.contains("\r") || value.contains("\n");
+        if (!needsQuoting) {
+            csv.append(value);
+            return;
+        }
+        csv.append("\"").append(value.replace("\"", "\"\"")).append("\"");
     }
 }

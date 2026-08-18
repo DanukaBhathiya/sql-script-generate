@@ -118,7 +118,7 @@ The service performs row-level validation before SQL generation.
 
 | Source File | Mandatory Fields Validated by Service | Failed Row Behavior |
 | --- | --- | --- |
-| `users.csv` / `users_N.csv` | `BANK_EMAIL`, `DIGESTED_PASSWORD`, `MOBILE` | Row is skipped and written to fail summary. |
+| `users.csv` / `users_N.csv` | `BANK_EMAIL`, `DIGESTED_PASSWORD`, `MOBILE`, `REGISTERED_ACCOUNT_NUMBER` | Row is skipped and written to fail summary and failed-users CSV. |
 | `beneficiaries.csv` / `beneficiaries_N.csv` | `CIF`, `ACCOUNT_NUMBER`, `NICKNAME`, `TYPE` | Row is skipped and written to fail summary. |
 | `templates.csv` / `templates_N.csv` | `CIF`, `TEMPLATE_NAME`, `RECIPIENT_BANK` | Row is skipped and written to fail summary. |
 
@@ -213,9 +213,13 @@ When `saveToDisk=true`, the service writes migration output files.
 | Generated SQL | `migration_inserts_<timestamp>.sql` |
 | Fail summary | `migration_inserts_<timestamp>_fail_summary.log` |
 | Migration data CSV | `migration_inserts_<timestamp>_data.csv` |
+| Users success CSV | `migration_inserts_<timestamp>_users_success.csv` |
+| Users failed CSV | `migration_inserts_<timestamp>_users_failed.csv` |
 | Batch generated SQL | `migration_inserts_batch-1_<timestamp>.sql` |
 | Batch fail summary | `migration_inserts_batch-1_<timestamp>_fail_summary.log` |
 | Batch migration data CSV | `migration_inserts_batch-1_<timestamp>_data.csv` |
+| Batch users success CSV | `migration_inserts_batch-1_<timestamp>_users_success.csv` |
+| Batch users failed CSV | `migration_inserts_batch-1_<timestamp>_users_failed.csv` |
 
 When `executeToDb=true`, the service also writes successful migration CSV files.
 
@@ -404,4 +408,3 @@ Keep the following evidence for audit and support.
 | DB validation queries and counts | Yes |
 | Business sign-off | Yes |
 | Rollback approval and output, if rollback was performed | Conditional |
-

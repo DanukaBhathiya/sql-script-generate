@@ -42,6 +42,13 @@ class SqlGenerationServiceTests {
                 .contains("1,users CSV,1,pending_user,username,'john'")
                 .contains("1,users CSV,1,pending_user,migrated_username,'john'")
                 .doesNotContain("2,users CSV,2,pending_user,cif,'1001'");
+        assertThat(result.userSuccessCsv())
+                .contains("cif,username,registered_account_number")
+                .contains("1001,john,8000000001")
+                .doesNotContain("1001,jane,8000000002");
+        assertThat(result.userFailureCsv())
+                .contains("cif,reason")
+                .contains("1001,duplicate cif");
         assertThat(result.fileSummaries())
                 .contains(new MigrationFileSummary("users CSV", 2, 1, 1))
                 .contains(new MigrationFileSummary("beneficiaries CSV", 0, 0, 0))
@@ -72,6 +79,12 @@ class SqlGenerationServiceTests {
                 .contains("1,users CSV,1,pending_user,number_of_otp_attempts,3")
                 .contains("1,users CSV,1,pending_user,number_of_login_attempts,4")
                 .contains("1,users CSV,1,pending_user,registered_account_number,'8000123456'");
+        assertThat(result.userSuccessCsv())
+                .contains("cif,username,registered_account_number")
+                .contains("1001,john,8000123456");
+        assertThat(result.userFailureCsv())
+                .contains("cif,reason")
+                .doesNotContain("1001,");
     }
 
     @Test
@@ -89,6 +102,12 @@ class SqlGenerationServiceTests {
                 .doesNotContain("INSERT INTO \"pending_user\"");
         assertThat(result.failureSummary())
                 .contains("missing required field(s): REGISTERED_ACCOUNT_NUMBER");
+        assertThat(result.userSuccessCsv())
+                .contains("cif,username,registered_account_number")
+                .doesNotContain("1001,john,");
+        assertThat(result.userFailureCsv())
+                .contains("cif,reason")
+                .contains("1001,missing required field(s): REGISTERED_ACCOUNT_NUMBER");
         assertThat(result.fileSummaries())
                 .contains(new MigrationFileSummary("users CSV", 1, 0, 1));
     }

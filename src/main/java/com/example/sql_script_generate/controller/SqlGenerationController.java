@@ -82,6 +82,8 @@ public class SqlGenerationController {
         List<Path> savedPaths = new ArrayList<>();
         List<Path> failSummaryPaths = new ArrayList<>();
         List<Path> migrationDataPaths = new ArrayList<>();
+        List<Path> userSuccessPaths = new ArrayList<>();
+        List<Path> userFailurePaths = new ArrayList<>();
         List<String> batchFileDescriptions = new ArrayList<>();
         StringBuilder responseSql = new StringBuilder();
         int totalFailureCount = 0;
@@ -130,24 +132,36 @@ public class SqlGenerationController {
             String fileName = baseFileName + ".sql";
             String failSummaryFileName = baseFileName + "_fail_summary.log";
             String migrationDataFileName = baseFileName + "_data.csv";
+            String userSuccessFileName = baseFileName + "_users_success.csv";
+            String userFailureFileName = baseFileName + "_users_failed.csv";
 
             if (saveToDisk) {
                 Files.createDirectories(outputDirectory);
                 Path savedPath = outputDirectory.resolve(fileName);
                 Path failSummaryPath = outputDirectory.resolve(failSummaryFileName);
                 Path migrationDataPath = outputDirectory.resolve(migrationDataFileName);
+                Path userSuccessPath = outputDirectory.resolve(userSuccessFileName);
+                Path userFailurePath = outputDirectory.resolve(userFailureFileName);
                 Files.writeString(savedPath, result.sql(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 Files.writeString(failSummaryPath, result.failureSummary(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 Files.writeString(migrationDataPath, result.migrationDataCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(userSuccessPath, result.userSuccessCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(userFailurePath, result.userFailureCsv(), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 savedPaths.add(savedPath);
                 failSummaryPaths.add(failSummaryPath);
                 migrationDataPaths.add(migrationDataPath);
+                userSuccessPaths.add(userSuccessPath);
+                userFailurePaths.add(userFailurePath);
                 LOGGER.info("Migration output file written: batchId={}, fileType=sql, path={}, bytes={}",
                         batch.id(), savedPath.toAbsolutePath().normalize(), Files.size(savedPath));
                 LOGGER.info("Migration output file written: batchId={}, fileType=fail-summary, path={}, bytes={}",
                         batch.id(), failSummaryPath.toAbsolutePath().normalize(), Files.size(failSummaryPath));
                 LOGGER.info("Migration output file written: batchId={}, fileType=migration-data, path={}, bytes={}",
                         batch.id(), migrationDataPath.toAbsolutePath().normalize(), Files.size(migrationDataPath));
+                LOGGER.info("Migration output file written: batchId={}, fileType=user-success, path={}, bytes={}",
+                        batch.id(), userSuccessPath.toAbsolutePath().normalize(), Files.size(userSuccessPath));
+                LOGGER.info("Migration output file written: batchId={}, fileType=user-failure, path={}, bytes={}",
+                        batch.id(), userFailurePath.toAbsolutePath().normalize(), Files.size(userFailurePath));
             }
 
             if (executeToDb) {
@@ -192,6 +206,14 @@ public class SqlGenerationController {
         if (!migrationDataPaths.isEmpty()) {
             headers.add("X-Migration-Data-File", migrationDataPaths.get(0).toAbsolutePath().toString());
             headers.add("X-Migration-Data-Files", joinPaths(migrationDataPaths));
+        }
+        if (!userSuccessPaths.isEmpty()) {
+            headers.add("X-User-Success-File", userSuccessPaths.get(0).toAbsolutePath().toString());
+            headers.add("X-User-Success-Files", joinPaths(userSuccessPaths));
+        }
+        if (!userFailurePaths.isEmpty()) {
+            headers.add("X-User-Failure-File", userFailurePaths.get(0).toAbsolutePath().toString());
+            headers.add("X-User-Failure-Files", joinPaths(userFailurePaths));
         }
         if (outputDirectory != null) {
             headers.add("X-Output-Directory", outputDirectory.toString());

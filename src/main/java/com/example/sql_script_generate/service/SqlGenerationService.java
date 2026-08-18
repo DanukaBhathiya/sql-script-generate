@@ -24,6 +24,8 @@ import org.springframework.stereotype.Service;
 public class SqlGenerationService {
 
     private static final DateTimeFormatter SQL_DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final List<String> USER_SUCCESS_COLUMNS = List.of("cif", "username", "registered_account_number");
+    private static final List<String> USER_FAILURE_COLUMNS = List.of("cif", "reason");
     private static final List<String> PENDING_USER_COLUMNS = List.of(
             "id", "created_date_time", "updated_date_time", "bank_email", "cif", "city", "country",
             "digested_password", "email", "email_matched", "email_mismatch_count", "first_name", "full_name",
@@ -70,6 +72,10 @@ public class SqlGenerationService {
         StringBuilder migrationDataCsv = new StringBuilder();
         migrationDataCsv.append("insert_index,source_file,source_row,target_table,column_name,final_sql_value")
                 .append(System.lineSeparator());
+        StringBuilder userSuccessCsv = new StringBuilder();
+        appendCsvHeader(userSuccessCsv, USER_SUCCESS_COLUMNS);
+        StringBuilder userFailureCsv = new StringBuilder();
+        appendCsvHeader(userFailureCsv, USER_FAILURE_COLUMNS);
 
         String pendingUserPrefix = "INSERT INTO \"pending_user\" (\"id\", \"created_date_time\", \"updated_date_time\", "
                 + "\"bank_email\", \"cif\", \"city\", \"country\", \"digested_password\", \"email\", \"email_matched\", "
@@ -136,6 +142,7 @@ public class SqlGenerationService {
 
             if (!skipReasons.isEmpty()) {
                 String reason = String.join("; ", skipReasons);
+                appendCsvRow(userFailureCsv, cif, reason);
                 sql.append("-- Skipped users CSV row ")
                         .append(row.getRecordNumber())
                         .append(" due to ")
@@ -195,6 +202,7 @@ public class SqlGenerationService {
                     .append(String.join(", ", values))
                     .append(") ON CONFLICT DO NOTHING;")
                     .append(System.lineSeparator());
+            appendCsvRow(userSuccessCsv, cif, username, registeredAccountNumber);
             appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "users CSV", row.getRecordNumber(),
                     "pending_user", PENDING_USER_COLUMNS, values);
             nextInsertIndex++;
@@ -335,7 +343,8 @@ public class SqlGenerationService {
         );
 
         return new SqlGenerationResult(sql.toString(), buildFailureSummary(failureScenarios),
-                migrationDataCsv.toString(), failureScenarios.size(), generatedInsertCount, fileSummaries);
+                migrationDataCsv.toString(), userSuccessCsv.toString(), userFailureCsv.toString(),
+                failureScenarios.size(), generatedInsertCount, fileSummaries);
     }
 
     private void appendMigrationDataCsvRows(StringBuilder csv, int insertIndex, String source, long sourceRow,
@@ -366,6 +375,20 @@ public class SqlGenerationService {
             return;
         }
         csv.append("\"").append(value.replace("\"", "\"\"")).append("\"");
+    }
+
+    private void appendCsvHeader(StringBuilder csv, List<String> columns) {
+        csv.append(String.join(",", columns)).append(System.lineSeparator());
+    }
+
+    private void appendCsvRow(StringBuilder csv, String... values) {
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) {
+                csv.append(",");
+            }
+            appendCsvValue(csv, values[i]);
+        }
+        csv.append(System.lineSeparator());
     }
 
     private String buildFailureSummary(List<FailureScenario> failureScenarios) {
@@ -599,11 +622,12 @@ public class SqlGenerationService {
         return null;
     }
 
-    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount,
-            int insertCount, List<MigrationFileSummary> fileSummaries) {
-        public SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv, int failureCount,
-                int insertCount) {
-            this(sql, failureSummary, migrationDataCsv, failureCount, insertCount, List.of());
+    public record SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv,
+            String userSuccessCsv, String userFailureCsv, int failureCount, int insertCount,
+            List<MigrationFileSummary> fileSummaries) {
+        public SqlGenerationResult(String sql, String failureSummary, String migrationDataCsv,
+                String userSuccessCsv, String userFailureCsv, int failureCount, int insertCount) {
+            this(sql, failureSummary, migrationDataCsv, userSuccessCsv, userFailureCsv, failureCount, insertCount, List.of());
         }
     }
 

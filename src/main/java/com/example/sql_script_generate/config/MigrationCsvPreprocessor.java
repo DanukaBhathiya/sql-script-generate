@@ -72,7 +72,8 @@ final class MigrationCsvPreprocessor {
                     totalRows++;
                     RowDecision decision = validator.validate(row);
                     if (decision.skipReason() != null) {
-                        skippedRows.add(new SkippedRow(source, row.getRecordNumber(), query, decision.skipReason()));
+                        skippedRows.add(new SkippedRow(source, row.getRecordNumber(), query, decision.skipReason(),
+                                normalized(row, "CIF")));
                         continue;
                     }
                     List<String> values = new ArrayList<>(headers.size());
@@ -112,7 +113,7 @@ final class MigrationCsvPreprocessor {
         }
     }
 
-    record SkippedRow(String source, long rowNumber, String query, String reason) {
+    record SkippedRow(String source, long rowNumber, String query, String reason, String cif) {
     }
 
     private record RowDecision(String skipReason, Map<String, String> replacements) {
