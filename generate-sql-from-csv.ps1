@@ -287,6 +287,7 @@ foreach ($row in $users) {
     $identityNumber = Normalize-Field $row.IDENTITY_NUMBER
     $mobile = Normalize-Field $row.MOBILE
     $username = Normalize-Field $row.USERNAME
+    $registeredAccountNumber = Normalize-Field $row.REGISTERED_ACCOUNT_NUMBER
     $idExpire = Parse-IdExpire (Normalize-Field $row.ID_EXPIRE)
     $dob = Parse-DateOfBirth (Normalize-Field $row.DATE_OF_BIRTH)
     $idType = Map-IdType (Normalize-Field $row.ID_TYPE)
@@ -298,8 +299,16 @@ foreach ($row in $users) {
     if (-not (Assert-UniqueUserField -Seen $seenMobile -RawValue $mobile -IgnoreCase $false)) { $duplicateFields.Add("mobile") }
     if (-not (Assert-UniqueUserField -Seen $seenEmail -RawValue $email -IgnoreCase $true)) { $duplicateFields.Add("email") }
 
+    $skipReasons = @()
+    if ($null -eq $registeredAccountNumber) {
+        $skipReasons += "missing required field(s): REGISTERED_ACCOUNT_NUMBER"
+    }
     if ($duplicateFields.Count -gt 0) {
-        $sqlLines.Add("-- Skipped users CSV row $userRowNumber due to duplicate " + ($duplicateFields -join ", "))
+        $skipReasons += "duplicate " + ($duplicateFields -join ", ")
+    }
+
+    if ($skipReasons.Count -gt 0) {
+        $sqlLines.Add("-- Skipped users CSV row $userRowNumber due to " + ($skipReasons -join "; "))
         $userSkippedCount++
         continue
     }
@@ -333,7 +342,7 @@ foreach ($row in $users) {
         (To-SqlString (Normalize-Field $row.STREET3)),
         (To-SqlString $username),
         (To-SqlString $dob),
-        (To-SqlString (Normalize-Field $row.REGISTERED_ACCOUNT_NUMBER)),
+        (To-SqlString $registeredAccountNumber),
         "TRUE"
     )
 

@@ -17,8 +17,8 @@ class SequenceBackedSqlGenerationServiceTests {
 
     @Test
     void pendingUserIdUsesDatabaseDefaultAndIgnoresRequestedStart() throws Exception {
-        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n"
-                + "1001,john,john@example.test,hash,7000001\n");
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER\n"
+                + "1001,john,john@example.test,hash,7000001,8000000001\n");
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
 
         var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 99999);
@@ -74,16 +74,16 @@ class SequenceBackedSqlGenerationServiceTests {
 
     @Test
     void usersMissingRequiredMigrationFieldsAreSkippedWithOriginalRowNumbers() throws Exception {
-        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n"
-                + "1001,invalid,,,7000001\n"
-                + "1002,valid,valid@example.test,hash,7000002\n");
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER\n"
+                + "1001,invalid,,,7000001,8000000001\n"
+                + "1002,valid,valid@example.test,hash,7000002,8000000002\n");
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME\n");
 
         var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
 
         assertThat(result.sql())
                 .doesNotContain("'INVALID'")
-                .contains("'VALID'");
+                .contains("'valid'");
         assertThat(result.failureCount()).isEqualTo(1);
         assertThat(result.insertCount()).isEqualTo(1);
         assertThat(result.failureSummary())

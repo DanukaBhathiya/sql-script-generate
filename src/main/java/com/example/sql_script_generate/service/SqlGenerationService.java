@@ -98,13 +98,11 @@ public class SqlGenerationService {
             String mobile = normalize(getRaw(row, "MOBILE"));
             String username = normalize(getRaw(row, "USERNAME"));
             String digestedPassword = normalize(getRaw(row, "DIGESTED_PASSWORD", "DIGESTED PASSWORD"));
-            if (username != null) {
-                username = username.toUpperCase(Locale.ROOT);
-            }
             String idExpire = parseIdExpire(normalize(getRaw(row, "ID_EXPIRE")));
             String dateOfBirth = parseDateOfBirth(normalize(getRaw(row, "DATE_OF_BIRTH")));
             String idType = mapIdType(normalize(getRaw(row, "ID_TYPE")));
             String userGroupName = normalize(getRaw(row, "USER_GROUP", "USER GROUP", "USERGROUP", "USER_GROUP_NAME", "USER GROUP NAME"));
+            String registeredAccountNumber = normalize(getRaw(row, "REGISTERED_ACCOUNT_NUMBER"));
             String fdaAccountCreatedOn = normalize(getRaw(row,
                     "FDAACCOUNT_CREATED_ON", "FDAACCOUNT CREATED ON", "FDA_ACCOUNT_CREATED_ON",
                     "FDA ACCOUNT CREATED ON", "FDAAccount Created on"));
@@ -128,8 +126,16 @@ public class SqlGenerationService {
             registerUniqueField(seenMobile, normalizeUniqueKey(mobile, false), "mobile", duplicateFields);
             registerUniqueField(seenEmail, normalizeUniqueKey(email, true), "email", duplicateFields);
 
+            List<String> skipReasons = new ArrayList<>();
+            if (registeredAccountNumber == null) {
+                skipReasons.add("missing required field(s): REGISTERED_ACCOUNT_NUMBER");
+            }
             if (!duplicateFields.isEmpty()) {
-                String reason = "duplicate " + String.join(", ", duplicateFields);
+                skipReasons.add("duplicate " + String.join(", ", duplicateFields));
+            }
+
+            if (!skipReasons.isEmpty()) {
+                String reason = String.join("; ", skipReasons);
                 sql.append("-- Skipped users CSV row ")
                         .append(row.getRecordNumber())
                         .append(" due to ")
@@ -175,7 +181,7 @@ public class SqlGenerationService {
             values.add(toSqlString(username));
             values.add(toSqlString(username));
             values.add(toSqlString(dateOfBirth));
-            values.add(toSqlString(normalize(getRaw(row, "REGISTERED_ACCOUNT_NUMBER"))));
+            values.add(toSqlString(registeredAccountNumber));
             values.add(toSqlUserGroupId(userGroupName));
             values.add("TRUE");
             values.add(toSqlString(remarks));

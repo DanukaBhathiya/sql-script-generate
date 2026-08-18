@@ -18,9 +18,9 @@ class SqlGenerationServiceTests {
     @Test
     void generateSqlWithSummaryExplainsSkippedDuplicateUserQuery() throws Exception {
         InputStream usersCsv = csv("""
-                CIF,USERNAME,IDENTITY_NUMBER,MOBILE,EMAIL
-                1001,john,A123,7771111,john@example.com
-                1001,jane,A124,7772222,jane@example.com
+                CIF,USERNAME,IDENTITY_NUMBER,MOBILE,EMAIL,REGISTERED_ACCOUNT_NUMBER
+                1001,john,A123,7771111,john@example.com,8000000001
+                1001,jane,A124,7772222,jane@example.com,8000000002
                 """);
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
 
@@ -39,8 +39,8 @@ class SqlGenerationServiceTests {
         assertThat(result.migrationDataCsv())
                 .contains("insert_index,source_file,source_row,target_table,column_name,final_sql_value")
                 .contains("1,users CSV,1,pending_user,cif,'1001'")
-                .contains("1,users CSV,1,pending_user,username,'JOHN'")
-                .contains("1,users CSV,1,pending_user,migrated_username,'JOHN'")
+                .contains("1,users CSV,1,pending_user,username,'john'")
+                .contains("1,users CSV,1,pending_user,migrated_username,'john'")
                 .doesNotContain("2,users CSV,2,pending_user,cif,'1001'");
         assertThat(result.fileSummaries())
                 .contains(new MigrationFileSummary("users CSV", 2, 1, 1))
@@ -51,8 +51,8 @@ class SqlGenerationServiceTests {
     @Test
     void generateSqlWithSummaryMapsAdditionalUserMigrationParameters() throws Exception {
         InputStream usersCsv = csv("""
-                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,FDA ACCOUNT CREATED ON,FDA ACCOUNT STATUS,REMARKS / LOCK REASON,NUMBER OF OTP ATTEMPTS,NUMBER OF LOGIN ATTEMPTS
-                1001,john,john@example.com,hash,7771111,2020-01-02,LOCKED,Fraud review,3,4
+                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED ACCOUNT NUMBER,FDA ACCOUNT CREATED ON,FDA ACCOUNT STATUS,REMARKS / LOCK REASON,NUMBER OF OTP ATTEMPTS,NUMBER OF LOGIN ATTEMPTS
+                1001,john,john@example.com,hash,7771111,8000123456,2020-01-02,LOCKED,Fraud review,3,4
                 """);
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
 
@@ -63,13 +63,34 @@ class SqlGenerationServiceTests {
                         + "\"fda_account_created_date_time\", \"fda_account_status\"")
                 .contains("VALUES (1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP")
                 .contains("'LOCKED'")
-                .contains("'Fraud review', 3, 4, '2020-01-02', 'LOCKED'");
+                .contains("'Fraud review', 3, 4, '2020-01-02', 'LOCKED'")
+                .contains("'8000123456'");
         assertThat(result.migrationDataCsv())
                 .contains("1,users CSV,1,pending_user,fda_account_created_date_time,'2020-01-02'")
                 .contains("1,users CSV,1,pending_user,fda_account_status,'LOCKED'")
                 .contains("1,users CSV,1,pending_user,fda_account_remarks,'Fraud review'")
                 .contains("1,users CSV,1,pending_user,number_of_otp_attempts,3")
-                .contains("1,users CSV,1,pending_user,number_of_login_attempts,4");
+                .contains("1,users CSV,1,pending_user,number_of_login_attempts,4")
+                .contains("1,users CSV,1,pending_user,registered_account_number,'8000123456'");
+    }
+
+    @Test
+    void generateSqlWithSummarySkipsUsersMissingRegisteredAccountNumber() throws Exception {
+        InputStream usersCsv = csv("""
+                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE
+                1001,john,john@example.com,hash,7771111
+                """);
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
+
+        SqlGenerationResult result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
+
+        assertThat(result.failureCount()).isEqualTo(1);
+        assertThat(result.sql())
+                .doesNotContain("INSERT INTO \"pending_user\"");
+        assertThat(result.failureSummary())
+                .contains("missing required field(s): REGISTERED_ACCOUNT_NUMBER");
+        assertThat(result.fileSummaries())
+                .contains(new MigrationFileSummary("users CSV", 1, 0, 1));
     }
 
     private InputStream csv(String content) {
