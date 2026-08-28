@@ -88,6 +88,39 @@ class SqlGenerationServiceTests {
     }
 
     @Test
+    void generateSqlWithSummarySkipsNonActiveUsers() throws Exception {
+        InputStream usersCsv = csv("""
+                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER,FDA_ACCOUNT_STATUS
+                1001,john,john@example.com,hash,7771111,8000123456,ACTIVE
+                1002,jane,jane@example.com,hash,7772222,8000123457,LOCKED
+                1003,bob,bob@example.com,hash,7773333,8000123458,INACTIVE
+                """);
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
+
+        SqlGenerationResult result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
+
+        assertThat(result.failureCount()).isEqualTo(2);
+        assertThat(result.sql())
+                .contains("INSERT INTO \"pending_user\"")
+                .contains("'ACTIVE'")
+                .doesNotContain("'LOCKED'")
+                .doesNotContain("'INACTIVE'");
+        assertThat(result.failureSummary())
+                .contains("Failed scenarios: 2")
+                .contains("1002,non-active user status: LOCKED")
+                .contains("1003,non-active user status: INACTIVE");
+        assertThat(result.userSuccessCsv())
+                .contains("cif,username,registered_account_number")
+                .contains("1001,john,8000123456")
+                .doesNotContain("1002,jane,8000123457")
+                .doesNotContain("1003,bob,8000123458");
+        assertThat(result.userFailureCsv())
+                .contains("cif,reason")
+                .contains("1002,non-active user status: LOCKED")
+                .contains("1003,non-active user status: INACTIVE");
+    }
+
+    @Test
     void generateSqlWithSummarySkipsUsersMissingRegisteredAccountNumber() throws Exception {
         InputStream usersCsv = csv("""
                 CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE

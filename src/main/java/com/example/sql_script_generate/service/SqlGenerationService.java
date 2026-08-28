@@ -133,6 +133,9 @@ public class SqlGenerationService {
             registerUniqueField(seenEmail, normalizeUniqueKey(email, true), "email", duplicateFields);
 
             List<String> skipReasons = new ArrayList<>();
+            if (fdaAccountStatus == null || !isActiveUserStatus(fdaAccountStatus)) {
+                skipReasons.add("non-active user status: " + (fdaAccountStatus == null ? "missing" : fdaAccountStatus));
+            }
             if (registeredAccountNumber == null) {
                 skipReasons.add("missing required field(s): REGISTERED_ACCOUNT_NUMBER");
             }
@@ -195,7 +198,7 @@ public class SqlGenerationService {
             values.add(toSqlIntegerOrNull(numberOfOtpAttempts));
             values.add(toSqlIntegerOrNull(numberOfLoginAttempts));
             values.add(toSqlTimestampOrCurrent(fdaAccountCreatedOn));
-            values.add(toSqlString(fdaAccountStatus == null ? "IN_PROGRESS" : fdaAccountStatus));
+            values.add(toSqlString(fdaAccountStatus));
 
             sql.append(pendingUserPrefix)
                     .append("(")
@@ -551,6 +554,13 @@ public class SqlGenerationService {
             return null;
         }
         return caseInsensitive ? trimmed.toLowerCase(Locale.ROOT) : trimmed;
+    }
+
+    private boolean isActiveUserStatus(String status) {
+        if (status == null) {
+            return false;
+        }
+        return "ACTIVE".equalsIgnoreCase(status.trim());
     }
 
     private String normalizeHeader(String value) {
