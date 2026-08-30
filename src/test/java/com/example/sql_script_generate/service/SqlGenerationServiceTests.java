@@ -34,6 +34,7 @@ class SqlGenerationServiceTests {
                 .contains("Failed scenarios: 1")
                 .contains("Source: users CSV")
                 .contains("Row: 2")
+                .contains("CIF: 1001")
                 .contains("Query: pending_user insert")
                 .contains("Reason: query skipped without being created because the row has duplicate cif");
         assertThat(result.migrationDataCsv())
@@ -118,6 +119,22 @@ class SqlGenerationServiceTests {
                 .contains("cif,reason")
                 .contains("1002,non-active user status: LOCKED")
                 .contains("1003,non-active user status: INACTIVE");
+    }
+
+    @Test
+    void failSummaryIncludesRowNumberAndCifForSkippedUsers() throws Exception {
+        InputStream usersCsv = csv("""
+                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER,FDA_ACCOUNT_STATUS
+                1001,john,john@example.com,hash,7771111,8000123456,LOCKED
+                """);
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
+
+        SqlGenerationResult result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
+
+        assertThat(result.failureSummary())
+                .contains("Row: 1")
+                .contains("CIF: 1001")
+                .contains("Reason: query skipped without being created because the row has non-active user status: LOCKED");
     }
 
     @Test

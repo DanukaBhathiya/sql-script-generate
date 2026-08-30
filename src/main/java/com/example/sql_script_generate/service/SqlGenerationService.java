@@ -133,8 +133,8 @@ public class SqlGenerationService {
             registerUniqueField(seenEmail, normalizeUniqueKey(email, true), "email", duplicateFields);
 
             List<String> skipReasons = new ArrayList<>();
-            if (fdaAccountStatus == null || !isActiveUserStatus(fdaAccountStatus)) {
-                skipReasons.add("non-active user status: " + (fdaAccountStatus == null ? "missing" : fdaAccountStatus));
+            if (fdaAccountStatus != null && !isActiveUserStatus(fdaAccountStatus)) {
+                skipReasons.add("non-active user status: " + fdaAccountStatus);
             }
             if (registeredAccountNumber == null) {
                 skipReasons.add("missing required field(s): REGISTERED_ACCOUNT_NUMBER");
@@ -155,7 +155,8 @@ public class SqlGenerationService {
                         "users CSV",
                         row.getRecordNumber(),
                         "pending_user insert",
-                        "query skipped without being created because the row has " + reason
+                        "query skipped without being created because the row has " + reason,
+                        cif
                 ));
                 skippedUsers++;
                 continue;
@@ -409,6 +410,9 @@ public class SqlGenerationService {
             FailureScenario failure = failureScenarios.get(i);
             summary.append(i + 1).append(". Source: ").append(failure.source()).append(System.lineSeparator());
             summary.append("   Row: ").append(failure.rowNumber()).append(System.lineSeparator());
+            if (failure.cif() != null && !failure.cif().isBlank()) {
+                summary.append("   CIF: ").append(failure.cif()).append(System.lineSeparator());
+            }
             summary.append("   Query: ").append(failure.queryName()).append(System.lineSeparator());
             summary.append("   Status: skipped").append(System.lineSeparator());
             summary.append("   Reason: ").append(failure.reason()).append(System.lineSeparator());
@@ -557,10 +561,14 @@ public class SqlGenerationService {
     }
 
     private boolean isActiveUserStatus(String status) {
+//        if (status == null) {
+//            return true;
+//        }
         if (status == null) {
             return false;
         }
-        return "ACTIVE".equalsIgnoreCase(status.trim());
+        String trimmed = status.trim();
+        return trimmed.isEmpty() || "ACTIVE".equalsIgnoreCase(trimmed);
     }
 
     private String normalizeHeader(String value) {
@@ -644,6 +652,6 @@ public class SqlGenerationService {
     public record MigrationFileSummary(String sourceFile, int rowsRead, int generatedInsertCount, int skippedCount) {
     }
 
-    private record FailureScenario(String source, long rowNumber, String queryName, String reason) {
+    private record FailureScenario(String source, long rowNumber, String queryName, String reason, String cif) {
     }
 }

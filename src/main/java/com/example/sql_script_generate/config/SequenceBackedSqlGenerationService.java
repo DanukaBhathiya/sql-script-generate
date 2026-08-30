@@ -133,6 +133,9 @@ public class SequenceBackedSqlGenerationService extends SqlGenerationService {
             SkippedRow failure = addedFailures.get(i);
             output.append(existingCount + i + 1).append(". Source: ").append(failure.source()).append(System.lineSeparator());
             output.append("   Row: ").append(failure.rowNumber()).append(System.lineSeparator());
+            if (failure.cif() != null && !failure.cif().isBlank()) {
+                output.append("   CIF: ").append(failure.cif()).append(System.lineSeparator());
+            }
             output.append("   Query: ").append(failure.query()).append(System.lineSeparator());
             output.append("   Status: skipped").append(System.lineSeparator());
             output.append("   Reason: query skipped without being created because the row has ")

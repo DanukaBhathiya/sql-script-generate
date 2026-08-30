@@ -94,6 +94,7 @@ class SequenceBackedSqlGenerationServiceTests {
         assertThat(result.failureSummary())
                 .contains("Source: users CSV")
                 .contains("Row: 1")
+                .contains("CIF: 1001")
                 .contains("missing required field(s): BANK_EMAIL, DIGESTED_PASSWORD");
         assertThat(result.userFailureCsv())
                 .contains("cif,reason")
