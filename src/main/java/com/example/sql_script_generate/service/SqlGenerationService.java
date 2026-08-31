@@ -127,7 +127,7 @@ public class SqlGenerationService {
 
             List<String> duplicateFields = new ArrayList<>();
             registerUniqueField(seenCif, normalizeUniqueKey(cif, false), "cif", duplicateFields);
-            registerUniqueField(seenUsername, normalizeUniqueKey(username, true), "username", duplicateFields);
+            registerUniqueField(seenUsername, normalizeUniqueKey(username, false), "username", duplicateFields);
             registerUniqueField(seenIdentityNumber, normalizeUniqueKey(identityNumber, true), "identity_number", duplicateFields);
             registerUniqueField(seenMobile, normalizeUniqueKey(mobile, false), "mobile", duplicateFields);
             registerUniqueField(seenEmail, normalizeUniqueKey(email, true), "email", duplicateFields);

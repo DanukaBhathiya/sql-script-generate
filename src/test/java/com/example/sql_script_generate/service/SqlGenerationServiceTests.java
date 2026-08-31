@@ -89,7 +89,7 @@ class SqlGenerationServiceTests {
     }
 
     @Test
-    void generateSqlWithSummarySkipsNonActiveUsers() throws Exception {
+    void generateSqlWithSummaryDoesNotBlockLockedOrInactiveStatuses() throws Exception {
         InputStream usersCsv = csv("""
                 CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER,FDA_ACCOUNT_STATUS
                 1001,john,john@example.com,hash,7771111,8000123456,ACTIVE
@@ -100,32 +100,30 @@ class SqlGenerationServiceTests {
 
         SqlGenerationResult result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
 
-        assertThat(result.failureCount()).isEqualTo(2);
+        assertThat(result.failureCount()).isZero();
         assertThat(result.sql())
                 .contains("INSERT INTO \"pending_user\"")
                 .contains("'ACTIVE'")
-                .doesNotContain("'LOCKED'")
-                .doesNotContain("'INACTIVE'");
+                .contains("'LOCKED'")
+                .contains("'INACTIVE'");
         assertThat(result.failureSummary())
-                .contains("Failed scenarios: 2")
-                .contains("1002,non-active user status: LOCKED")
-                .contains("1003,non-active user status: INACTIVE");
+                .contains("No failed scenarios found. No SQL queries were skipped.");
         assertThat(result.userSuccessCsv())
                 .contains("cif,username,registered_account_number")
                 .contains("1001,john,8000123456")
-                .doesNotContain("1002,jane,8000123457")
-                .doesNotContain("1003,bob,8000123458");
+                .contains("1002,jane,8000123457")
+                .contains("1003,bob,8000123458");
         assertThat(result.userFailureCsv())
                 .contains("cif,reason")
-                .contains("1002,non-active user status: LOCKED")
-                .contains("1003,non-active user status: INACTIVE");
+                .doesNotContain("1002,non-active user status: LOCKED")
+                .doesNotContain("1003,non-active user status: INACTIVE");
     }
 
     @Test
     void failSummaryIncludesRowNumberAndCifForSkippedUsers() throws Exception {
         InputStream usersCsv = csv("""
-                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER,FDA_ACCOUNT_STATUS
-                1001,john,john@example.com,hash,7771111,8000123456,LOCKED
+                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE
+                1001,john,john@example.com,hash,7771111
                 """);
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
 
@@ -134,7 +132,32 @@ class SqlGenerationServiceTests {
         assertThat(result.failureSummary())
                 .contains("Row: 1")
                 .contains("CIF: 1001")
-                .contains("Reason: query skipped without being created because the row has non-active user status: LOCKED");
+                .contains("Reason: query skipped without being created because the row has missing required field(s): REGISTERED_ACCOUNT_NUMBER");
+    }
+
+    @Test
+    void generateSqlWithSummaryAllowsUsernamesThatDifferOnlyByCase() throws Exception {
+        InputStream usersCsv = csv("""
+                CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER,FDA_ACCOUNT_STATUS
+                1001,NAMAL2252,namal@example.com,hash,7771111,8000000001,ACTIVE
+                1002,Namal2252,namal2@example.com,hash,7772222,8000000002,ACTIVE
+                """);
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
+
+        SqlGenerationResult result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
+
+        assertThat(result.failureCount()).isZero();
+        assertThat(result.sql())
+                .contains("'NAMAL2252'")
+                .contains("'Namal2252'")
+                .doesNotContain("duplicate username");
+        assertThat(result.userSuccessCsv())
+                .contains("1001,NAMAL2252,8000000001")
+                .contains("1002,Namal2252,8000000002");
+        assertThat(result.userFailureCsv())
+                .contains("cif,reason")
+                .doesNotContain("1001,duplicate username")
+                .doesNotContain("1002,duplicate username");
     }
 
     @Test
