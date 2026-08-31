@@ -60,7 +60,7 @@ class SqlGenerationServiceTests {
     void generateSqlWithSummaryMapsAdditionalUserMigrationParameters() throws Exception {
         InputStream usersCsv = csv("""
                 CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED ACCOUNT NUMBER,FDA ACCOUNT CREATED ON,FDA ACCOUNT STATUS,REMARKS / LOCK REASON,NUMBER OF OTP ATTEMPTS,NUMBER OF LOGIN ATTEMPTS
-                1001,john,john@example.com,hash,7771111,8000123456,2020-01-02,LOCKED,Fraud review,3,4
+                1001,john,john@example.com,hash,7771111,8000123456,2020-01-02,ACTIVE,Fraud review,3,4
                 """);
         InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER\n");
 
@@ -70,12 +70,12 @@ class SqlGenerationServiceTests {
                 .contains("\"fda_account_remarks\", \"number_of_otp_attempts\", \"number_of_login_attempts\", "
                         + "\"fda_account_created_date_time\", \"fda_account_status\"")
                 .contains("VALUES (1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP")
-                .contains("'LOCKED'")
-                .contains("'Fraud review', 3, 4, '2020-01-02', 'LOCKED'")
+                .contains("'ACTIVE'")
+                .contains("'Fraud review', 3, 4, '2020-01-02', 'ACTIVE'")
                 .contains("'8000123456'");
         assertThat(result.migrationDataCsv())
                 .contains("1,users CSV,1,pending_user,fda_account_created_date_time,'2020-01-02'")
-                .contains("1,users CSV,1,pending_user,fda_account_status,'LOCKED'")
+                .contains("1,users CSV,1,pending_user,fda_account_status,'ACTIVE'")
                 .contains("1,users CSV,1,pending_user,fda_account_remarks,'Fraud review'")
                 .contains("1,users CSV,1,pending_user,number_of_otp_attempts,3")
                 .contains("1,users CSV,1,pending_user,number_of_login_attempts,4")
@@ -89,7 +89,7 @@ class SqlGenerationServiceTests {
     }
 
     @Test
-    void generateSqlWithSummaryDoesNotBlockLockedOrInactiveStatuses() throws Exception {
+    void generateSqlWithSummaryOnlyIncludesActiveUserStatuses() throws Exception {
         InputStream usersCsv = csv("""
                 CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER,FDA_ACCOUNT_STATUS
                 1001,john,john@example.com,hash,7771111,8000123456,ACTIVE
@@ -100,23 +100,29 @@ class SqlGenerationServiceTests {
 
         SqlGenerationResult result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
 
-        assertThat(result.failureCount()).isZero();
+        assertThat(result.failureCount()).isEqualTo(2);
         assertThat(result.sql())
                 .contains("INSERT INTO \"pending_user\"")
                 .contains("'ACTIVE'")
-                .contains("'LOCKED'")
-                .contains("'INACTIVE'");
+                .doesNotContain("'LOCKED'")
+                .doesNotContain("'INACTIVE'");
         assertThat(result.failureSummary())
-                .contains("No failed scenarios found. No SQL queries were skipped.");
+                .contains("Failed scenarios: 2")
+                .contains("Row: 2")
+                .contains("CIF: 1002")
+                .contains("Reason: query skipped without being created because the row has non-active user status: LOCKED")
+                .contains("Row: 3")
+                .contains("CIF: 1003")
+                .contains("Reason: query skipped without being created because the row has non-active user status: INACTIVE");
         assertThat(result.userSuccessCsv())
                 .contains("cif,username,registered_account_number")
                 .contains("1001,john,8000123456")
-                .contains("1002,jane,8000123457")
-                .contains("1003,bob,8000123458");
+                .doesNotContain("1002,jane,8000123457")
+                .doesNotContain("1003,bob,8000123458");
         assertThat(result.userFailureCsv())
                 .contains("cif,reason")
-                .doesNotContain("1002,non-active user status: LOCKED")
-                .doesNotContain("1003,non-active user status: INACTIVE");
+                .contains("1002,non-active user status: LOCKED")
+                .contains("1003,non-active user status: INACTIVE");
     }
 
     @Test

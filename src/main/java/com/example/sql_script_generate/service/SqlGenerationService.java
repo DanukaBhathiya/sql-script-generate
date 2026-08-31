@@ -561,14 +561,11 @@ public class SqlGenerationService {
     }
 
     private boolean isActiveUserStatus(String status) {
-//        if (status == null) {
-//            return true;
-//        }
         if (status == null) {
             return false;
         }
         String trimmed = status.trim();
-        return trimmed.isEmpty() || "ACTIVE".equalsIgnoreCase(trimmed);
+        return "ACTIVE".equalsIgnoreCase(trimmed);
     }
 
     private String normalizeHeader(String value) {
