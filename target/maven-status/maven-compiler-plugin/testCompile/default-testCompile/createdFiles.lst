@@ -1,0 +1,6 @@
+com\example\sql_script_generate\config\SuccessfulMigrationCsvWriterTests.class
+com\example\sql_script_generate\service\SqlGenerationServiceTests.class
+com\example\sql_script_generate\SqlScriptGenerateApplicationTests.class
+com\example\sql_script_generate\config\ConfiguredOutputDirectoryFilterTests.class
+com\example\sql_script_generate\config\MigrationInputPropertiesTests.class
+com\example\sql_script_generate\config\SequenceBackedSqlGenerationServiceTests.class

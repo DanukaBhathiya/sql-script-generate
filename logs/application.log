@@ -1,0 +1,40 @@
+2026-08-30 15:50:10.166 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Starting SqlScriptGenerateApplicationTests using Java 21.0.5 with PID 11032 (started by PM_User in C:\Paymedia\CBM\services\sql-script-generate)
+2026-08-30 15:50:10.191 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - The following 1 profile is active: "uat"
+2026-08-30 15:50:12.130 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Starting...
+2026-08-30 15:50:12.159 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Start completed.
+2026-08-30 15:50:12.995 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Started SqlScriptGenerateApplicationTests in 3.762 seconds (process running for 7.874)
+2026-08-30 15:50:13.015 INFO  [main] [system] c.e.s.config.MigrationStartupLogger - Migration service configuration: profiles=[uat], inputDirectory=C:\Paymedia\CBM\services\sql-script-generate\csv-files, outputDirectory=C:\Paymedia\CBM\services\sql-script-generate\migration-output, usersFile=users.csv, beneficiariesFile=beneficiaries.csv, templatesFile=templates.csv, datasourceConfigured=true
+2026-08-30 15:50:14.361 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown initiated...
+2026-08-30 15:50:22.386 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown completed.
+2026-08-30 15:51:50.877 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Starting SqlScriptGenerateApplicationTests using Java 21.0.5 with PID 11208 (started by PM_User in C:\Paymedia\CBM\services\sql-script-generate)
+2026-08-30 15:51:50.887 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - The following 1 profile is active: "uat"
+2026-08-30 15:51:52.523 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Starting...
+2026-08-30 15:51:52.549 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Start completed.
+2026-08-30 15:51:53.333 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Started SqlScriptGenerateApplicationTests in 3.382 seconds (process running for 6.417)
+2026-08-30 15:51:53.340 INFO  [main] [system] c.e.s.config.MigrationStartupLogger - Migration service configuration: profiles=[uat], inputDirectory=C:\Paymedia\CBM\services\sql-script-generate\csv-files, outputDirectory=C:\Paymedia\CBM\services\sql-script-generate\migration-output, usersFile=users.csv, beneficiariesFile=beneficiaries.csv, templatesFile=templates.csv, datasourceConfigured=true
+2026-08-30 15:51:54.599 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown initiated...
+2026-08-30 15:52:02.760 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown completed.
+2026-08-30 15:58:33.181 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Starting SqlScriptGenerateApplicationTests using Java 17.0.12 with PID 20744 (started by PM_User in C:\Paymedia\CBM\services\sql-script-generate)
+2026-08-30 15:58:33.196 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - The following 1 profile is active: "uat"
+2026-08-30 15:58:35.137 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Starting...
+2026-08-30 15:58:35.178 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Start completed.
+2026-08-30 15:58:36.105 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Started SqlScriptGenerateApplicationTests in 3.968 seconds (process running for 7.424)
+2026-08-30 15:58:36.117 INFO  [main] [system] c.e.s.config.MigrationStartupLogger - Migration service configuration: profiles=[uat], inputDirectory=C:\Paymedia\CBM\services\sql-script-generate\csv-files, outputDirectory=C:\Paymedia\CBM\services\sql-script-generate\migration-output, usersFile=users.csv, beneficiariesFile=beneficiaries.csv, templatesFile=templates.csv, datasourceConfigured=true
+2026-08-30 15:58:37.569 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown initiated...
+2026-08-30 15:58:45.409 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown completed.
+2026-08-30 16:05:49.861 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Starting SqlScriptGenerateApplicationTests using Java 21.0.5 with PID 22796 (started by PM_User in C:\Paymedia\CBM\services\sql-script-generate)
+2026-08-30 16:05:49.885 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - The following 1 profile is active: "uat"
+2026-08-30 16:05:51.836 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Starting...
+2026-08-30 16:05:51.866 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Start completed.
+2026-08-30 16:05:52.661 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Started SqlScriptGenerateApplicationTests in 3.798 seconds (process running for 7.922)
+2026-08-30 16:05:52.668 INFO  [main] [system] c.e.s.config.MigrationStartupLogger - Migration service configuration: profiles=[uat], inputDirectory=C:\Paymedia\CBM\services\sql-script-generate\csv-files, outputDirectory=C:\Paymedia\CBM\services\sql-script-generate\migration-output, usersFile=users.csv, beneficiariesFile=beneficiaries.csv, templatesFile=templates.csv, datasourceConfigured=true
+2026-08-30 16:05:54.023 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown initiated...
+2026-08-30 16:06:02.100 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown completed.
+2026-08-30 16:09:06.195 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Starting SqlScriptGenerateApplicationTests using Java 21.0.5 with PID 7600 (started by PM_User in C:\Paymedia\CBM\services\sql-script-generate)
+2026-08-30 16:09:06.207 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - The following 1 profile is active: "uat"
+2026-08-30 16:09:08.240 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Starting...
+2026-08-30 16:09:08.269 INFO  [main] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Start completed.
+2026-08-30 16:09:09.239 INFO  [main] [system] c.e.s.SqlScriptGenerateApplicationTests - Started SqlScriptGenerateApplicationTests in 4.19 seconds (process running for 7.602)
+2026-08-30 16:09:09.247 INFO  [main] [system] c.e.s.config.MigrationStartupLogger - Migration service configuration: profiles=[uat], inputDirectory=C:\Paymedia\CBM\services\sql-script-generate\csv-files, outputDirectory=C:\Paymedia\CBM\services\sql-script-generate\migration-output, usersFile=users.csv, beneficiariesFile=beneficiaries.csv, templatesFile=templates.csv, datasourceConfigured=true
+2026-08-30 16:09:10.684 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown initiated...
+2026-08-30 16:09:18.491 INFO  [SpringApplicationShutdownHook] [system] com.zaxxer.hikari.HikariDataSource - HikariCP-uat - Shutdown completed.
