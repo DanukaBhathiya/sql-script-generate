@@ -93,7 +93,9 @@ public class SqlGenerationService {
         Set<String> seenMobile = new HashSet<>();
         Set<String> seenEmail = new HashSet<>();
 
-        for (CSVRecord row : users) {
+        for (int userIndex = 0; userIndex < users.size(); userIndex++) {
+            CSVRecord row = users.get(userIndex);
+            long sourceRow = userIndex + 1;
             String bankEmail = normalize(getRaw(row, "BANK_EMAIL"));
             String email = normalize(getRaw(row, "EMAIL"));
             if (email == null) {
@@ -148,13 +150,13 @@ public class SqlGenerationService {
                 String reason = String.join("; ", skipReasons);
                 appendCsvRow(userFailureCsv, cif, reason);
                 sql.append("-- Skipped users CSV row ")
-                        .append(row.getRecordNumber())
+                    .append(sourceRow)
                         .append(" due to ")
                         .append(reason)
                         .append(System.lineSeparator());
                 failureScenarios.add(new FailureScenario(
                         "users CSV",
-                        row.getRecordNumber(),
+                    sourceRow,
                         "pending_user insert",
                         "query skipped without being created because the row has " + reason,
                         cif
@@ -208,7 +210,7 @@ public class SqlGenerationService {
                     .append(") ON CONFLICT DO NOTHING;")
                     .append(System.lineSeparator());
             appendCsvRow(userSuccessCsv, cif, username, registeredAccountNumber);
-            appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "users CSV", row.getRecordNumber(),
+                appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "users CSV", sourceRow,
                     "pending_user", PENDING_USER_COLUMNS, values);
             nextInsertIndex++;
             nextUserId++;
@@ -221,7 +223,9 @@ public class SqlGenerationService {
                 + "\"predefined_limit\", \"recipient_name\", \"transfer_limit\", \"type\", \"type_description\", "
                 + "\"recipient_country\", \"recipient_country_code\", \"bank_bic\", \"branch_name\", \"is_intra_group\", \"is_combank\") VALUES ";
 
-        for (CSVRecord row : beneficiaries) {
+        for (int benIndex = 0; benIndex < beneficiaries.size(); benIndex++) {
+            CSVRecord row = beneficiaries.get(benIndex);
+            long sourceRow = benIndex + 1;
             String typeRaw = normalize(getRaw(row, "TYPE"));
             String upperType = typeRaw == null ? "" : typeRaw.toUpperCase();
 
@@ -278,7 +282,7 @@ public class SqlGenerationService {
                     .append(String.join(", ", values))
                     .append(");")
                     .append(System.lineSeparator());
-            appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "beneficiaries CSV", row.getRecordNumber(),
+                appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "beneficiaries CSV", sourceRow,
                     "migrate_beneficiary", BENEFICIARY_COLUMNS, values);
             nextInsertIndex++;
         }
@@ -292,7 +296,9 @@ public class SqlGenerationService {
                     + "\"recipient_country\", \"transfer_type\", \"recipient_country_code\", \"charge_option\", "
                     + "\"intermediary_bank_swift_code\", \"recipient_address\", \"swift_code\", \"is_combank\") VALUES ";
 
-            for (CSVRecord row : templates) {
+            for (int tplIndex = 0; tplIndex < templates.size(); tplIndex++) {
+                CSVRecord row = templates.get(tplIndex);
+                long sourceRow = tplIndex + 1;
                 String migratedTimestamp = normalize(getRaw(row, "MIGRATED_TIMESTAMP"));
                 String transferType = mapTemplateTransferType(normalize(getRaw(row, "TEMPLATE_TYPE")));
                 String templateBankCode = normalize(getRaw(row, "BANK_CODE"));
@@ -337,7 +343,7 @@ public class SqlGenerationService {
                         .append(String.join(", ", values))
                         .append(");")
                         .append(System.lineSeparator());
-                appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "templates CSV", row.getRecordNumber(),
+                appendMigrationDataCsvRows(migrationDataCsv, nextInsertIndex, "templates CSV", sourceRow,
                         "migrate_template", TEMPLATE_COLUMNS, values);
                 nextInsertIndex++;
             }
