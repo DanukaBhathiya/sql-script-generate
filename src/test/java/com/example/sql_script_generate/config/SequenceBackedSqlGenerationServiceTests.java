@@ -78,6 +78,23 @@ class SequenceBackedSqlGenerationServiceTests {
     }
 
     @Test
+    void beneficiaryBankCodeIsSplitIntoFdBankBankAndBranchFields() throws Exception {
+        InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE\n");
+        InputStream beneficiariesCsv = csv("CIF,TYPE,ACCOUNT_NUMBER,NICKNAME,BANK_CODE\n"
+                + "1001,OTHER_BANK,1234,Home,MALBMVMV003\n");
+
+        var result = service.generateSqlWithSummary(usersCsv, beneficiariesCsv, null, 1);
+
+        assertThat(result.sql())
+                .contains("\"fd_bank_code\"")
+                .contains("\"bank_code\"")
+                .contains("\"branch_code\"")
+                .contains("'MALBMVMV003'")
+                .contains("'MALBMVMV'")
+                .contains("'003'");
+    }
+
+    @Test
     void usersMissingRequiredMigrationFieldsAreSkippedWithOriginalRowNumbers() throws Exception {
         InputStream usersCsv = csv("CIF,USERNAME,BANK_EMAIL,DIGESTED_PASSWORD,MOBILE,REGISTERED_ACCOUNT_NUMBER\n"
                 + "1001,invalid,,,7000001,8000000001\n"

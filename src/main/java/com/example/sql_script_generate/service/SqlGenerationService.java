@@ -36,9 +36,10 @@ public class SqlGenerationService {
             "fda_account_created_date_time", "fda_account_status"
     );
     private static final List<String> BENEFICIARY_COLUMNS = List.of(
-            "cif", "created_date_time", "updated_date_time", "account_number", "bank_code", "bank_name",
-            "nickname", "predefined_limit", "recipient_name", "transfer_limit", "type", "type_description",
-            "recipient_country", "recipient_country_code", "bank_bic", "is_intra_group", "is_combank"
+            "cif", "created_date_time", "updated_date_time", "account_number", "fd_bank_code", "bank_code",
+            "branch_code", "bank_name", "nickname", "predefined_limit", "recipient_name", "transfer_limit",
+            "type", "type_description", "recipient_country", "recipient_country_code", "bank_bic",
+            "branch_name", "is_intra_group", "is_combank"
     );
     private static final List<String> TEMPLATE_COLUMNS = List.of(
             "created_date_time", "updated_date_time", "amount", "from_account", "note_to_recipient",
@@ -216,9 +217,9 @@ public class SqlGenerationService {
         sql.append(System.lineSeparator());
 
         String beneficiaryPrefix = "INSERT INTO \"migrate_beneficiary\" (\"cif\", \"created_date_time\", \"updated_date_time\", "
-                + "\"account_number\", \"bank_code\", \"bank_name\", \"nickname\", \"predefined_limit\", \"recipient_name\", "
-                + "\"transfer_limit\", \"type\", \"type_description\", \"recipient_country\", \"recipient_country_code\", "
-                + "\"bank_bic\", \"is_intra_group\", \"is_combank\") VALUES ";
+                + "\"account_number\", \"fd_bank_code\", \"bank_code\", \"branch_code\", \"bank_name\", \"nickname\", "
+                + "\"predefined_limit\", \"recipient_name\", \"transfer_limit\", \"type\", \"type_description\", "
+                + "\"recipient_country\", \"recipient_country_code\", \"bank_bic\", \"branch_name\", \"is_intra_group\", \"is_combank\") VALUES ";
 
         for (CSVRecord row : beneficiaries) {
             String typeRaw = normalize(getRaw(row, "TYPE"));
@@ -236,6 +237,9 @@ public class SqlGenerationService {
             }
 
             String bankCode = normalize(getRaw(row, "BANK_CODE"));
+            String fdBankCode = bankCode;
+            String bankCodeWithoutBranch = splitBankCode(bankCode, false);
+            String branchCode = splitBankCode(bankCode, true);
             String bankName = isCombank ? "Commercial Bank of Maldives" : null;
 
             String predefinedRaw = normalize(getRaw(row, "PREDEFINED_LIMIT"));
@@ -252,7 +256,9 @@ public class SqlGenerationService {
             values.add("CURRENT_TIMESTAMP");
             values.add("CURRENT_TIMESTAMP");
             values.add(toSqlString(normalize(getRaw(row, "ACCOUNT_NUMBER"))));
-            values.add(toSqlString(bankCode));
+            values.add(toSqlString(fdBankCode));
+            values.add(toSqlString(bankCodeWithoutBranch));
+            values.add(toSqlString(branchCode));
             values.add(toSqlString(bankName));
             values.add(toSqlString(normalize(getRaw(row, "NICKNAME"))));
             values.add(toSqlString(predefinedLimit));
@@ -263,6 +269,7 @@ public class SqlGenerationService {
             values.add("NULL");
             values.add("NULL");
             values.add(toSqlString(bankCode));
+            values.add("NULL");
             values.add(toSqlBool(isCombank));
             values.add(toSqlBool(isCombank));
 
@@ -547,6 +554,20 @@ public class SqlGenerationService {
             return "LOCAL_TRANSFER";
         }
         return raw;
+    }
+
+    private String splitBankCode(String bankCode, boolean branchOnly) {
+        String normalized = normalize(bankCode);
+        if (normalized == null || normalized.isBlank()) {
+            return null;
+        }
+        if (normalized.length() <= 3) {
+            return normalized;
+        }
+        if (branchOnly) {
+            return normalized.substring(normalized.length() - 3);
+        }
+        return normalized.substring(0, normalized.length() - 3);
     }
 
     private String normalizeUniqueKey(String value, boolean caseInsensitive) {
